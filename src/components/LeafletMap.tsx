@@ -132,12 +132,13 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
         zoomControl={false}
         className="w-full h-full"
       >
-        {/* CARTO Dark Matter Raster Tiles (Clean vector dark mode tile server) */}
+        {/* Standard OpenStreetMap High-Definition Light Tiles */}
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           maxZoom={19}
         />
+
 
         <MapEventsHandler onMapClick={onMapClick} />
         <MapBoundsUpdater pickup={pickup} dropoff={dropoff} driverPos={driverPos} />

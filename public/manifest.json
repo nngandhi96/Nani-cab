@@ -1,0 +1,19 @@
+{
+  "short_name": "Nani Cab",
+  "name": "Nani Cab — Urban Mobility Platform",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#070a12",
+  "theme_color": "#f59e0b",
+  "display": "standalone",
+  "orientation": "portrait",
+  "description": "Book cabs, auto, bike rides or earn as a verified commercial driver with Nani Cab.",
+  "categories": ["travel", "navigation", "transportation"]
+}

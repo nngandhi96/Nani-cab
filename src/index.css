@@ -45,19 +45,20 @@
   background: #334155;
 }
 
-/* Leaflet Map Dark Theme Overrides */
+/* Leaflet Map Standard Theme Overrides */
 .leaflet-container {
   width: 100%;
   height: 100%;
-  background: #090d16 !important;
+  background: #e2e8f0 !important;
   font-family: 'Plus Jakarta Sans', sans-serif;
   z-index: 1;
 }
 
-/* CARTO Dark Matter raster tiles native rendering */
+/* OpenStreetMap native rendering */
 .leaflet-tile-container img {
-  filter: contrast(1.05) brightness(0.95);
+  filter: none !important;
 }
+
 
 .leaflet-popup-content-wrapper {
   background: rgba(15, 23, 42, 0.95) !important;
