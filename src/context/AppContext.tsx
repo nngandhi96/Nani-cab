@@ -53,6 +53,13 @@ interface AppContextType {
   // Notifications
   notification: string | null;
   setNotification: (msg: string | null) => void;
+
+  // Legal & Privacy Modal State
+  legalModalOpen: boolean;
+  legalModalTab: 'terms' | 'privacy';
+  openLegalModal: (tab?: 'terms' | 'privacy') => void;
+  closeLegalModal: () => void;
+  setLegalModalTab: (tab: 'terms' | 'privacy') => void;
 }
 
 const DEFAULT_DOCS: DriverDocuments = {
@@ -111,6 +118,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [notification, setNotification] = useState<string | null>(null);
+
+  // Legal Modal state
+  const [legalModalOpen, setLegalModalOpen] = useState<boolean>(false);
+  const [legalModalTab, setLegalModalTab] = useState<'terms' | 'privacy'>('terms');
+
+  const openLegalModal = (tab: 'terms' | 'privacy' = 'terms') => {
+    setLegalModalTab(tab);
+    setLegalModalOpen(true);
+  };
+
+  const closeLegalModal = () => {
+    setLegalModalOpen(false);
+  };
 
   const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
 
@@ -365,6 +385,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         notification,
         setNotification,
+
+        legalModalOpen,
+        legalModalTab,
+        openLegalModal,
+        closeLegalModal,
+        setLegalModalTab,
       }}
     >
       {children}

@@ -1,10 +1,10 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
-import { Car, ShieldCheck, LogOut } from 'lucide-react';
+import { Car, ShieldCheck, LogOut, FileText } from 'lucide-react';
 
 
 export const MobileBottomNav: React.FC = () => {
-  const { phone, activeView, switchView, logout, driverStats } = useApp();
+  const { phone, activeView, switchView, logout, driverStats, openLegalModal } = useApp();
 
   if (!phone) return null;
 
@@ -37,6 +37,14 @@ export const MobileBottomNav: React.FC = () => {
           )}
         </div>
         <span className="text-[10px] font-bold">Driver</span>
+      </button>
+
+      <button
+        onClick={() => openLegalModal('terms')}
+        className="flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl text-slate-500 hover:text-amber-400 transition-all"
+      >
+        <FileText className="w-5 h-5" />
+        <span className="text-[10px] font-bold">Legal</span>
       </button>
 
       <button

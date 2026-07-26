@@ -5,7 +5,7 @@ import type { UserRole } from '../types';
 
 
 export const AuthModal: React.FC = () => {
-  const { activeView, login, selectRole } = useApp();
+  const { activeView, login, selectRole, openLegalModal } = useApp();
 
   const [phoneInput, setPhoneInput] = useState('');
   const [otpInput, setOtpInput] = useState('');
@@ -54,7 +54,7 @@ export const AuthModal: React.FC = () => {
                 NC
               </div>
               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Welcome to Nani Cab</h1>
-              <p className="text-slate-400 text-xs sm:text-sm mt-1">Book instant city rides or earn as a verified driver</p>
+              <p className="text-slate-400 text-xs sm:text-sm mt-1">A proprietary product of MAKE MY VASH (MMV)</p>
             </div>
 
             {step === 'phone' ? (
@@ -116,6 +116,25 @@ export const AuthModal: React.FC = () => {
                     <span>Demo Driver</span>
                   </button>
                 </div>
+
+                <p className="text-[11px] text-slate-500 text-center mt-4 leading-relaxed">
+                  By continuing, you agree to Nani Cab's{' '}
+                  <button
+                    type="button"
+                    onClick={() => openLegalModal('terms')}
+                    className="text-amber-400 underline underline-offset-2 hover:text-amber-300 font-semibold"
+                  >
+                    Terms of Service
+                  </button>{' '}
+                  &{' '}
+                  <button
+                    type="button"
+                    onClick={() => openLegalModal('privacy')}
+                    className="text-emerald-400 underline underline-offset-2 hover:text-emerald-300 font-semibold"
+                  >
+                    Privacy Policy
+                  </button>.
+                </p>
               </form>
             ) : (
               <form onSubmit={handleVerifyOtp} className="space-y-4">

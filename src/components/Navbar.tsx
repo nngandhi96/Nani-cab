@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { Car, Phone, LogOut, ShieldCheck, Activity, Zap, Clock, Compass } from 'lucide-react';
+import { Car, Phone, LogOut, ShieldCheck, Activity, Zap, Clock, Compass, FileText } from 'lucide-react';
 
 export const Navbar: React.FC = () => {
-  const { phone, role, activeView, switchView, logout, driverStats, notification } = useApp();
+  const { phone, role, activeView, switchView, logout, driverStats, notification, openLegalModal } = useApp();
   const [timeString, setTimeString] = useState('');
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export const Navbar: React.FC = () => {
                 <Compass className="w-3 h-3 text-amber-400" /> Bengaluru
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">Urban Mobility Platform</p>
+            <p className="text-[11px] text-slate-400 font-medium">A unit of MAKE MY VASH (MMV)</p>
           </div>
         </div>
 
@@ -101,6 +101,16 @@ export const Navbar: React.FC = () => {
               </div>
               <span>{phone}</span>
             </div>
+
+            {/* Terms & Privacy button */}
+            <button
+              onClick={() => openLegalModal('terms')}
+              title="Terms & Privacy Policy"
+              className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs text-slate-400 hover:text-amber-400 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/30 transition-all font-semibold"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Legal</span>
+            </button>
 
             {/* Logout button */}
             <button
