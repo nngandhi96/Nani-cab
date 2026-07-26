@@ -1,0 +1,381 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import type {
+  UserRole,
+  DriverDocuments,
+  DriverStats,
+  RideRequest,
+  LocationPoint,
+  VehicleType,
+} from '../types';
+import { PRESET_LOCATIONS, calculateDistance, calculateFare } from '../utils/mockData';
+
+interface AppContextType {
+  // Auth & Navigation
+  role: UserRole;
+  phone: string;
+  isLoggedIn: boolean;
+  activeView: 'auth' | 'role_select' | 'rider' | 'driver';
+  login: (phone: string) => void;
+  selectRole: (role: UserRole) => void;
+  logout: () => void;
+  switchView: (view: 'rider' | 'driver') => void;
+
+  // Driver Document State
+  driverDocs: DriverDocuments;
+  updateDriverDoc: (docKey: keyof DriverDocuments, status: DriverDocuments[keyof DriverDocuments]) => void;
+
+  // Driver Online & Stats State
+  driverStats: DriverStats;
+  toggleDriverOnline: () => void;
+
+  // Ride State
+  currentRide: RideRequest | null;
+  riderPickup: LocationPoint;
+  riderDropoff: LocationPoint;
+  selectedVehicle: VehicleType;
+  setRiderPickup: (loc: LocationPoint) => void;
+  setRiderDropoff: (loc: LocationPoint) => void;
+  setSelectedVehicle: (v: VehicleType) => void;
+  
+  // Actions
+  bookRide: (paymentMethod: 'cash' | 'upi' | 'card') => void;
+  acceptRide: (rideId: string) => void;
+  rejectRide: (rideId: string) => void;
+  verifyOtpAndStartTrip: (otp: string) => boolean;
+  completeTrip: () => void;
+  cancelRide: () => void;
+  resetRide: () => void;
+
+  // Driver Real-time simulation location
+  driverPos: { lat: number; lng: number };
+  setDriverPos: (pos: { lat: number; lng: number }) => void;
+
+  // Notifications
+  notification: string | null;
+  setNotification: (msg: string | null) => void;
+}
+
+const DEFAULT_DOCS: DriverDocuments = {
+  license: 'pending',
+  rc: 'pending',
+  insurance: 'pending',
+  identity: 'pending',
+};
+
+const DEFAULT_STATS: DriverStats = {
+  todayEarnings: 1240,
+  completedRides: 5,
+  acceptanceRate: 94,
+  rating: 4.8,
+  isOnline: true,
+};
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const BROADCAST_CHANNEL_NAME = 'nani_cab_realtime_v1';
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [phone, setPhone] = useState<string>(() => localStorage.getItem('nani_phone') || '');
+  const [role, setRole] = useState<UserRole>(() => (localStorage.getItem('nani_role') as UserRole) || null);
+  const [activeView, setActiveView] = useState<'auth' | 'role_select' | 'rider' | 'driver'>(() => {
+    const savedRole = localStorage.getItem('nani_role');
+    const savedPhone = localStorage.getItem('nani_phone');
+    if (!savedPhone) return 'auth';
+    if (savedRole === 'driver') return 'driver';
+    if (savedRole === 'rider') return 'rider';
+    return 'role_select';
+  });
+
+  const [driverDocs, setDriverDocs] = useState<DriverDocuments>(() => {
+    const saved = localStorage.getItem('nani_driver_docs');
+    return saved ? JSON.parse(saved) : DEFAULT_DOCS;
+  });
+
+  const [driverStats, setDriverStats] = useState<DriverStats>(() => {
+    const saved = localStorage.getItem('nani_driver_stats');
+    return saved ? JSON.parse(saved) : DEFAULT_STATS;
+  });
+
+  const [riderPickup, setRiderPickup] = useState<LocationPoint>(PRESET_LOCATIONS[1]);
+  const [riderDropoff, setRiderDropoff] = useState<LocationPoint>(PRESET_LOCATIONS[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState<VehicleType>('sedan');
+
+  const [currentRide, setCurrentRide] = useState<RideRequest | null>(() => {
+    const saved = localStorage.getItem('nani_current_ride');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [driverPos, setDriverPos] = useState<{ lat: number; lng: number }>({
+    lat: 13.048,
+    lng: 77.618,
+  });
+
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+      broadcastChannelRef.current = channel;
+
+      channel.onmessage = (event) => {
+        const { type, payload } = event.data;
+        if (type === 'SYNC_RIDE') {
+          setCurrentRide(payload);
+          if (payload) localStorage.setItem('nani_current_ride', JSON.stringify(payload));
+          else localStorage.removeItem('nani_current_ride');
+        } else if (type === 'SYNC_DRIVER_POS') {
+          setDriverPos(payload);
+        } else if (type === 'SYNC_NOTIFICATION') {
+          setNotification(payload);
+          setTimeout(() => setNotification(null), 4000);
+        }
+      };
+
+      return () => {
+        channel.close();
+      };
+    }
+  }, []);
+
+  const broadcast = (type: string, payload: any) => {
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({ type, payload });
+    }
+  };
+
+  const syncRideState = (ride: RideRequest | null) => {
+    setCurrentRide(ride);
+    if (ride) {
+      localStorage.setItem('nani_current_ride', JSON.stringify(ride));
+    } else {
+      localStorage.removeItem('nani_current_ride');
+    }
+    broadcast('SYNC_RIDE', ride);
+  };
+
+  const login = (inputPhone: string) => {
+    setPhone(inputPhone);
+    localStorage.setItem('nani_phone', inputPhone);
+    setActiveView('role_select');
+  };
+
+  const selectRole = (selectedRole: UserRole) => {
+    setRole(selectedRole);
+    if (selectedRole) {
+      localStorage.setItem('nani_role', selectedRole);
+      setActiveView(selectedRole);
+    }
+  };
+
+  const logout = () => {
+    setPhone('');
+    setRole(null);
+    localStorage.removeItem('nani_phone');
+    localStorage.removeItem('nani_role');
+    setActiveView('auth');
+  };
+
+  const switchView = (view: 'rider' | 'driver') => {
+    setRole(view);
+    localStorage.setItem('nani_role', view);
+    setActiveView(view);
+  };
+
+  const updateDriverDoc = (docKey: keyof DriverDocuments, status: DriverDocuments[keyof DriverDocuments]) => {
+    const updated = { ...driverDocs, [docKey]: status };
+    setDriverDocs(updated);
+    localStorage.setItem('nani_driver_docs', JSON.stringify(updated));
+  };
+
+  const toggleDriverOnline = () => {
+    const updated = { ...driverStats, isOnline: !driverStats.isOnline };
+    setDriverStats(updated);
+    localStorage.setItem('nani_driver_stats', JSON.stringify(updated));
+  };
+
+  const bookRide = (paymentMethod: 'cash' | 'upi' | 'card') => {
+    const dist = calculateDistance(
+      riderPickup.lat,
+      riderPickup.lng,
+      riderDropoff.lat,
+      riderDropoff.lng
+    );
+    const fare = calculateFare(dist, selectedVehicle);
+    const mockOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const newRide: RideRequest = {
+      id: 'RIDE-' + Math.floor(10000 + Math.random() * 90000),
+      riderId: 'RIDER-99',
+      riderName: 'Rahul Sharma',
+      riderPhone: phone || '+91 98765 43210',
+      riderRating: 4.9,
+      pickup: riderPickup,
+      dropoff: riderDropoff,
+      distanceKm: dist,
+      durationMins: Math.round(dist * 2.5),
+      vehicleType: selectedVehicle,
+      fare,
+      otp: mockOtp,
+      status: 'requested',
+      paymentMethod,
+      createdAt: Date.now(),
+    };
+
+    syncRideState(newRide);
+
+    const msg = `🚨 New Ride Booked! ${riderPickup.name.split(',')[0]} ➔ ${riderDropoff.name.split(',')[0]} (₹${fare})`;
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const acceptRide = (rideId: string) => {
+    if (!currentRide || currentRide.id !== rideId) return;
+
+    const updatedRide: RideRequest = {
+      ...currentRide,
+      status: 'accepted',
+      driverId: 'DRIVER-404',
+      driverName: 'Vikram Singh',
+      driverPhone: '+91 91234 56789',
+      driverRating: 4.85,
+      vehicleModel: 'White Swift Dzire (AC)',
+      vehiclePlate: 'KA-04-EV-7788',
+      driverLat: driverPos.lat,
+      driverLng: driverPos.lng,
+    };
+
+    syncRideState(updatedRide);
+
+    const msg = '✨ Ride Accepted by Driver Vikram Singh!';
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const rejectRide = (rideId: string) => {
+    if (!currentRide || currentRide.id !== rideId) return;
+    syncRideState(null);
+    const msg = '❌ Ride Request Rejected by Driver';
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const verifyOtpAndStartTrip = (inputOtp: string): boolean => {
+    if (!currentRide) return false;
+    if (inputOtp.trim() === currentRide.otp) {
+      const updated: RideRequest = {
+        ...currentRide,
+        status: 'in_transit',
+      };
+      syncRideState(updated);
+      const msg = '🚖 OTP Verified! Trip is now in progress.';
+      setNotification(msg);
+      broadcast('SYNC_NOTIFICATION', msg);
+      setTimeout(() => setNotification(null), 4000);
+      return true;
+    }
+    return false;
+  };
+
+  const completeTrip = () => {
+    if (!currentRide) return;
+    const fareEarned = currentRide.fare;
+
+    const updatedStats: DriverStats = {
+      ...driverStats,
+      todayEarnings: driverStats.todayEarnings + fareEarned,
+      completedRides: driverStats.completedRides + 1,
+    };
+    setDriverStats(updatedStats);
+    localStorage.setItem('nani_driver_stats', JSON.stringify(updatedStats));
+
+    const updatedRide: RideRequest = {
+      ...currentRide,
+      status: 'completed',
+    };
+    syncRideState(updatedRide);
+
+    const msg = `🎉 Trip Completed! Collected ₹${fareEarned}`;
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 5000);
+  };
+
+  const cancelRide = () => {
+    if (!currentRide) return;
+    const updated: RideRequest = {
+      ...currentRide,
+      status: 'cancelled',
+    };
+    syncRideState(updated);
+    setTimeout(() => {
+      syncRideState(null);
+    }, 2000);
+  };
+
+  const resetRide = () => {
+    syncRideState(null);
+  };
+
+  const updateDriverPos = (pos: { lat: number; lng: number }) => {
+    setDriverPos(pos);
+    broadcast('SYNC_DRIVER_POS', pos);
+  };
+
+  return (
+    <AppContext.Provider
+      value={{
+        role,
+        phone,
+        isLoggedIn: !!phone,
+        activeView,
+        login,
+        selectRole,
+        logout,
+        switchView,
+
+        driverDocs,
+        updateDriverDoc,
+
+        driverStats,
+        toggleDriverOnline,
+
+        currentRide,
+        riderPickup,
+        riderDropoff,
+        selectedVehicle,
+        setRiderPickup,
+        setRiderDropoff,
+        setSelectedVehicle,
+
+        bookRide,
+        acceptRide,
+        rejectRide,
+        verifyOtpAndStartTrip,
+        completeTrip,
+        cancelRide,
+        resetRide,
+
+        driverPos,
+        setDriverPos: updateDriverPos,
+
+        notification,
+        setNotification,
+      }}
+    >
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+export const useApp = () => {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider');
+  }
+  return context;
+};
