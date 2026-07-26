@@ -9,17 +9,21 @@ export interface DriverDocuments {
   identity: DriverDocumentStatus;
 }
 
-export type VehicleType = 'bike' | 'mini' | 'sedan' | 'suv';
+export type VehicleType = 'auto' | 'bike' | 'mini' | 'sedan' | 'suv';
 
 export interface VehicleOption {
   id: VehicleType;
   name: string;
+  tagline: string;
   description: string;
   baseFare: number;
   perKm: number;
   capacity: number;
+  bags: number;
   eta: number; // minutes away
   icon: string;
+  badge?: string;
+  surgeMultiplier?: number;
 }
 
 export interface LocationPoint {
@@ -27,6 +31,7 @@ export interface LocationPoint {
   address: string;
   lat: number;
   lng: number;
+  category?: 'airport' | 'station' | 'techpark' | 'mall' | 'general';
 }
 
 export type RideStatus = 
@@ -54,6 +59,7 @@ export interface RideRequest {
   otp: string;
   status: RideStatus;
   paymentMethod: 'cash' | 'upi' | 'card';
+  surgeMultiplier?: number;
   
   // Assigned Driver details
   driverId?: string;
@@ -74,4 +80,6 @@ export interface DriverStats {
   acceptanceRate: number;
   rating: number;
   isOnline: boolean;
+  hoursOnline?: number;
 }
+
