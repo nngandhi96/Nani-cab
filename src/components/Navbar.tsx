@@ -27,9 +27,11 @@ export const Navbar: React.FC = () => {
           onClick={() => switchView(role === 'driver' ? 'driver' : 'rider')}
         >
           <div className="relative">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center shadow-lg shadow-amber-500/25 font-black text-slate-950 text-xl tracking-tighter group-hover:scale-105 transition-transform">
-              NC
-            </div>
+            <img
+              src="/logo.png"
+              alt="Nani Cab Logo"
+              className="w-10 h-10 rounded-2xl object-cover shadow-lg shadow-amber-500/25 group-hover:scale-105 transition-transform border border-amber-500/30"
+            />
             <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full animate-pulse" />
           </div>
 
