@@ -6,15 +6,19 @@ import { MobileBottomNav } from './components/MobileBottomNav';
 import { LegalModal } from './components/LegalModal';
 import { DriverDashboard } from './views/DriverDashboard';
 import { RiderDashboard } from './views/RiderDashboard';
+import { MadhubaniBackground } from './components/MadhubaniBackground';
 
 const MainContent: React.FC = () => {
   const { activeView, openLegalModal } = useApp();
 
   return (
-    <div className="min-h-screen bg-[#070a12] text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 pb-16 sm:pb-0">
+    <div className="min-h-screen bg-[#070a12] text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 pb-16 sm:pb-0 relative overflow-x-hidden">
+      {/* Traditional Madhubani Painting Watermark Background (14% opacity) */}
+      <MadhubaniBackground opacity={0.14} />
+
       <Navbar />
 
-      <main className="flex-1">
+      <main className="flex-1 relative z-10">
         {activeView === 'auth' || activeView === 'role_select' ? (
           <AuthModal />
         ) : activeView === 'driver' ? (

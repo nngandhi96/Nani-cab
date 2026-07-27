@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Shield, Car, CheckCircle2, Lock, ArrowRight, Sparkles } from 'lucide-react';
+import { Shield, Car, CheckCircle2, Lock, ArrowRight, Sparkles, Palette } from 'lucide-react';
 import type { UserRole } from '../types';
+import { MadhubaniBackground } from './MadhubaniBackground';
 
 
 export const AuthModal: React.FC = () => {
@@ -42,10 +43,21 @@ export const AuthModal: React.FC = () => {
   if (activeView !== 'auth' && activeView !== 'role_select') return null;
 
   return (
-    <div className="min-h-[calc(100vh-70px)] flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#070a12] to-black">
-      <div className="w-full max-w-md glass-panel-dark rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-2xl relative overflow-hidden border border-slate-800/80">
+    <div className="min-h-[calc(100vh-70px)] flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-[#070a12] to-black relative overflow-hidden">
+      {/* Madhubani Painting Watermark Background (12% - 15% opacity) */}
+      <MadhubaniBackground opacity={0.14} variant="login" />
+
+      <div className="w-full max-w-md glass-panel-dark rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-2xl relative z-10 overflow-hidden border border-slate-800/80">
         <div className="absolute -top-24 -right-24 w-56 h-56 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-24 -left-24 w-56 h-56 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Subtle Traditional Art Badge */}
+        <div className="flex justify-center mb-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold text-amber-300 tracking-wide uppercase shadow-sm">
+            <Palette className="w-3 h-3 text-amber-400" />
+            <span>Mithila / Madhubani Art Theme</span>
+          </span>
+        </div>
 
         {activeView === 'auth' ? (
           <div>
