@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type {
   UserRole,
   DriverDocuments,
@@ -8,6 +8,7 @@ import type {
   VehicleType,
 } from '../types';
 import { PRESET_LOCATIONS, calculateDistance, calculateFare } from '../utils/mockData';
+import { supabase, isSupabaseConfigured, mapDbRowToRide, mapRideToDbRow } from '../lib/supabase';
 
 interface AppContextType {
   // Auth & Navigation
@@ -132,8 +133,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLegalModalOpen(false);
   };
 
-  const broadcastChannelRef = React.useRef<BroadcastChannel | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
+  // 1. Setup Local BroadcastChannel (Browser tabs fallback)
   useEffect(() => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
@@ -159,18 +161,99 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // 2. Setup Supabase Realtime Subscriptions (Cross-device real-time sync)
+  useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) return;
+
+    // Fetch active ride on initial load
+    supabase
+      .from('rides')
+      .select('*')
+      .neq('status', 'completed')
+      .neq('status', 'cancelled')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const fetchedRide = mapDbRowToRide(data[0]);
+          setCurrentRide(fetchedRide);
+          localStorage.setItem('nani_current_ride', JSON.stringify(fetchedRide));
+        }
+      });
+
+    // Realtime channel for rides table updates
+    const rideChannel = supabase
+      .channel('supabase_realtime_rides')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rides' },
+        (payload) => {
+          if (payload.eventType === 'DELETE') {
+            setCurrentRide(null);
+            localStorage.removeItem('nani_current_ride');
+          } else if (payload.new) {
+            const updatedRide = mapDbRowToRide(payload.new);
+            setCurrentRide(updatedRide);
+            localStorage.setItem('nani_current_ride', JSON.stringify(updatedRide));
+          }
+        }
+      )
+      .subscribe();
+
+    // Realtime channel for driver locations
+    const driverLocChannel = supabase
+      .channel('supabase_realtime_driver_loc')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'driver_locations' },
+        (payload) => {
+          const newLoc = payload.new as any;
+          if (newLoc && newLoc.lat && newLoc.lng) {
+            setDriverPos({
+              lat: Number(newLoc.lat),
+              lng: Number(newLoc.lng),
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (supabase) {
+        supabase.removeChannel(rideChannel);
+        supabase.removeChannel(driverLocChannel);
+      }
+    };
+  }, []);
+
   const broadcast = (type: string, payload: any) => {
     if (broadcastChannelRef.current) {
       broadcastChannelRef.current.postMessage({ type, payload });
     }
   };
 
-  const syncRideState = (ride: RideRequest | null) => {
+  const syncRideState = async (ride: RideRequest | null) => {
     setCurrentRide(ride);
     if (ride) {
       localStorage.setItem('nani_current_ride', JSON.stringify(ride));
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const dbRow = mapRideToDbRow(ride);
+          await supabase.from('rides').upsert(dbRow);
+        } catch (err) {
+          console.error('Supabase ride upsert error:', err);
+        }
+      }
     } else {
+      const existingRideId = currentRide?.id;
       localStorage.removeItem('nani_current_ride');
+      if (isSupabaseConfigured && supabase && existingRideId) {
+        try {
+          await supabase.from('rides').delete().eq('id', existingRideId);
+        } catch (err) {
+          console.error('Supabase ride delete error:', err);
+        }
+      }
     }
     broadcast('SYNC_RIDE', ride);
   };
@@ -341,9 +424,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncRideState(null);
   };
 
-  const updateDriverPos = (pos: { lat: number; lng: number }) => {
+  const updateDriverPos = async (pos: { lat: number; lng: number }) => {
     setDriverPos(pos);
     broadcast('SYNC_DRIVER_POS', pos);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase.from('driver_locations').upsert({
+          driver_id: 'DRIVER-404',
+          driver_name: 'Vikram Singh',
+          lat: pos.lat,
+          lng: pos.lng,
+          is_online: true,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Supabase driver location upsert error:', err);
+      }
+    }
   };
 
   return (
@@ -405,3 +503,4 @@ export const useApp = () => {
   }
   return context;
 };
+
