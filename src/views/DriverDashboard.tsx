@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { LeafletMap } from '../components/LeafletMap';
+import { MapWrapper } from '../components/MapWrapper';
 import { sounds } from '../utils/audio';
+
 import {
   FileText,
   Upload,
@@ -485,13 +486,14 @@ export const DriverDashboard: React.FC = () => {
 
         {/* Right Column: Driver Live Dark Vector Map with Surge Heatmap */}
         <div className="lg:col-span-2 min-h-[480px] lg:min-h-[580px] bg-slate-900/90 border border-slate-800/80 rounded-3xl p-2 shadow-2xl">
-          <LeafletMap
+          <MapWrapper
             pickup={currentRide?.pickup}
             dropoff={currentRide?.dropoff}
             driverPos={driverPos}
             showSurgeHotspots={true}
           />
         </div>
+
       </div>
     </div>
   );

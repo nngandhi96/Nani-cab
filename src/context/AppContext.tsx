@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import type {
   UserRole,
+  MapEngine,
   DriverDocuments,
   DriverStats,
   RideRequest,
@@ -21,9 +22,16 @@ interface AppContextType {
   logout: () => void;
   switchView: (view: 'rider' | 'driver') => void;
 
+  // Map Engine & API Key State
+  mapEngine: MapEngine;
+  setMapEngine: (engine: MapEngine) => void;
+  googleApiKey: string;
+  setGoogleApiKey: (key: string) => void;
+
   // Driver Document State
   driverDocs: DriverDocuments;
   updateDriverDoc: (docKey: keyof DriverDocuments, status: DriverDocuments[keyof DriverDocuments]) => void;
+
 
   // Driver Online & Stats State
   driverStats: DriverStats;
@@ -94,7 +102,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return 'role_select';
   });
 
+  // Map Engine & Google Maps API Key State
+  const [googleApiKey, setGoogleApiKeyState] = useState<string>(() => {
+    return localStorage.getItem('nani_google_api_key') || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+  });
+
+  const [mapEngine, setMapEngineState] = useState<MapEngine>(() => {
+    const savedEngine = localStorage.getItem('nani_map_engine') as MapEngine;
+    if (savedEngine === 'google' || savedEngine === 'leaflet') return savedEngine;
+    return 'google';
+  });
+
+  const setMapEngine = (engine: MapEngine) => {
+    setMapEngineState(engine);
+    localStorage.setItem('nani_map_engine', engine);
+  };
+
+  const setGoogleApiKey = (key: string) => {
+    setGoogleApiKeyState(key);
+    localStorage.setItem('nani_google_api_key', key);
+  };
+
   const [driverDocs, setDriverDocs] = useState<DriverDocuments>(() => {
+
     const saved = localStorage.getItem('nani_driver_docs');
     return saved ? JSON.parse(saved) : DEFAULT_DOCS;
   });
@@ -456,7 +486,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         switchView,
 
+        mapEngine,
+        setMapEngine,
+        googleApiKey,
+        setGoogleApiKey,
+
         driverDocs,
+
         updateDriverDoc,
 
         driverStats,

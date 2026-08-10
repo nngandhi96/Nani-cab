@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { LeafletMap } from '../components/LeafletMap';
-import { PRESET_LOCATIONS, VEHICLE_OPTIONS, calculateDistance, calculateFare } from '../utils/mockData';
+import { MapWrapper } from '../components/MapWrapper';
+import { GooglePlacesSearch } from '../components/GooglePlacesSearch';
+import { VEHICLE_OPTIONS, calculateDistance, calculateFare } from '../utils/mockData';
 import { sounds } from '../utils/audio';
+
 import {
   Car,
   Phone,
@@ -12,7 +14,6 @@ import {
   Sparkles,
   RotateCcw,
   Check,
-  MapPin,
   Navigation,
   Shield,
   Copy,
@@ -44,15 +45,10 @@ export const RiderDashboard: React.FC = () => {
   const [tipAmount, setTipAmount] = useState<number>(0);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
-  // Search input state
-  const [pickupSearch, setPickupSearch] = useState('');
-  const [dropoffSearch, setDropoffSearch] = useState('');
-  const [showPickupList, setShowPickupList] = useState(false);
-  const [showDropoffList, setShowDropoffList] = useState(false);
-
   // Safety Center & OTP Copy state
   const [showSafetyModal, setShowSafetyModal] = useState(false);
   const [otpCopied, setOtpCopied] = useState(false);
+
 
   const distance = calculateDistance(
     riderPickup.lat,
@@ -96,17 +92,8 @@ export const RiderDashboard: React.FC = () => {
     setTimeout(() => setOtpCopied(false), 2000);
   };
 
-  const filteredPickupLocations = PRESET_LOCATIONS.filter((loc) =>
-    loc.name.toLowerCase().includes(pickupSearch.toLowerCase()) ||
-    loc.address.toLowerCase().includes(pickupSearch.toLowerCase())
-  );
-
-  const filteredDropoffLocations = PRESET_LOCATIONS.filter((loc) =>
-    loc.name.toLowerCase().includes(dropoffSearch.toLowerCase()) ||
-    loc.address.toLowerCase().includes(dropoffSearch.toLowerCase())
-  );
-
   return (
+
     <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
       {/* Top Banner Ticker */}
       <div className="bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-slate-900 border border-amber-500/30 rounded-2xl px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-lg">
@@ -153,12 +140,10 @@ export const RiderDashboard: React.FC = () => {
                 {/* Pickup Location Autocomplete Input */}
                 <div className="relative z-20">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-500/50" /> Pickup Location
-                    </label>
                     <button
+                      type="button"
                       onClick={() => setPickMode(pickMode === 'pickup' ? 'none' : 'pickup')}
-                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ${
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ml-auto ${
                         pickMode === 'pickup'
                           ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md'
                           : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
@@ -168,50 +153,23 @@ export const RiderDashboard: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="relative">
-                    <MapPin className="absolute left-3.5 top-3.5 w-4 h-4 text-emerald-400" />
-                    <input
-                      type="text"
-                      value={pickupSearch || riderPickup.name}
-                      onFocus={() => setShowPickupList(true)}
-                      onChange={(e) => {
-                        setPickupSearch(e.target.value);
-                        setShowPickupList(true);
-                      }}
-                      placeholder="Search pickup landmark..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950/90 border border-slate-800 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 font-semibold"
-                    />
-
-                    {showPickupList && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 max-h-52 overflow-y-auto divide-y divide-slate-800/60">
-                        {filteredPickupLocations.map((loc) => (
-                          <div
-                            key={'p-' + loc.name}
-                            onClick={() => {
-                              setRiderPickup(loc);
-                              setPickupSearch(loc.name);
-                              setShowPickupList(false);
-                            }}
-                            className="p-3 hover:bg-slate-800/80 cursor-pointer transition-colors"
-                          >
-                            <span className="font-bold text-xs text-white block">{loc.name}</span>
-                            <span className="text-[10px] text-slate-400">{loc.address}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <GooglePlacesSearch
+                    label="Pickup Location"
+                    value={riderPickup}
+                    onChangeLocation={(loc) => setRiderPickup(loc)}
+                    iconBgColor="bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                    dotColor="bg-emerald-400"
+                    placeholder="Search pickup landmark, airport, tech park..."
+                  />
                 </div>
 
                 {/* Dropoff Location Autocomplete Input */}
                 <div className="relative z-10">
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="text-[11px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-md shadow-rose-500/50" /> Dropoff Location
-                    </label>
                     <button
+                      type="button"
                       onClick={() => setPickMode(pickMode === 'dropoff' ? 'none' : 'dropoff')}
-                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ${
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ml-auto ${
                         pickMode === 'dropoff'
                           ? 'bg-rose-500 text-white border-rose-400 shadow-md'
                           : 'bg-slate-900 text-slate-300 border-slate-800 hover:text-white'
@@ -221,41 +179,17 @@ export const RiderDashboard: React.FC = () => {
                     </button>
                   </div>
 
-                  <div className="relative">
-                    <Navigation className="absolute left-3.5 top-3.5 w-4 h-4 text-rose-400" />
-                    <input
-                      type="text"
-                      value={dropoffSearch || riderDropoff.name}
-                      onFocus={() => setShowDropoffList(true)}
-                      onChange={(e) => {
-                        setDropoffSearch(e.target.value);
-                        setShowDropoffList(true);
-                      }}
-                      placeholder="Search dropoff landmark..."
-                      className="w-full pl-10 pr-4 py-3 bg-slate-950/90 border border-slate-800 rounded-2xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500 font-semibold"
-                    />
-
-                    {showDropoffList && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 max-h-52 overflow-y-auto divide-y divide-slate-800/60">
-                        {filteredDropoffLocations.map((loc) => (
-                          <div
-                            key={'d-' + loc.name}
-                            onClick={() => {
-                              setRiderDropoff(loc);
-                              setDropoffSearch(loc.name);
-                              setShowDropoffList(false);
-                            }}
-                            className="p-3 hover:bg-slate-800/80 cursor-pointer transition-colors"
-                          >
-                            <span className="font-bold text-xs text-white block">{loc.name}</span>
-                            <span className="text-[10px] text-slate-400">{loc.address}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <GooglePlacesSearch
+                    label="Dropoff Location"
+                    value={riderDropoff}
+                    onChangeLocation={(loc) => setRiderDropoff(loc)}
+                    iconBgColor="bg-rose-500/20 text-rose-400 border-rose-500/40"
+                    dotColor="bg-rose-400"
+                    placeholder="Search dropoff landmark or address..."
+                  />
                 </div>
               </div>
+
 
               {/* Distance Summary Card */}
               <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
@@ -542,13 +476,14 @@ export const RiderDashboard: React.FC = () => {
 
         {/* Right Column: Interactive Dark Vector Map */}
         <div className="lg:col-span-7 min-h-[500px] lg:min-h-[660px] bg-slate-900/90 border border-slate-800/80 rounded-3xl p-2 shadow-2xl">
-          <LeafletMap
+          <MapWrapper
             pickup={riderPickup}
             dropoff={riderDropoff}
             driverPos={currentRide?.status !== 'idle' ? driverPos : undefined}
             onMapClick={handleMapClick}
           />
         </div>
+
       </div>
 
       {/* Safety Center Modal */}

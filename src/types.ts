@@ -1,6 +1,9 @@
 export type UserRole = 'rider' | 'driver' | null;
 
+export type MapEngine = 'google' | 'leaflet';
+
 export type DriverDocumentStatus = 'pending' | 'uploaded' | 'verified';
+
 
 export interface DriverDocuments {
   license: DriverDocumentStatus;
