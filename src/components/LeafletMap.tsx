@@ -8,12 +8,18 @@ interface LeafletMapProps {
   pickup?: LocationPoint;
   dropoff?: LocationPoint;
   driverPos?: { lat: number; lng: number };
+  driverHeading?: number;
+  vehicleIcon?: string;
   onMapClick?: (lat: number, lng: number) => void;
   interactive?: boolean;
   showSurgeHotspots?: boolean;
 }
 
-const createCustomIcon = (type: 'pickup' | 'dropoff' | 'driver' | 'nearby_cab', heading = 0) => {
+const createCustomIcon = (
+  type: 'pickup' | 'dropoff' | 'driver' | 'nearby_cab',
+  heading = 0,
+  vehicleEmoji = '🚖'
+) => {
   if (type === 'pickup') {
     return L.divIcon({
       className: 'custom-map-icon',
@@ -59,15 +65,15 @@ const createCustomIcon = (type: 'pickup' | 'dropoff' | 'driver' | 'nearby_cab', 
     return L.divIcon({
       className: 'custom-map-icon',
       html: `
-        <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; transform: rotate(${heading}deg); transition: transform 0.4s ease;">
-          <div style="position: absolute; width: 50px; height: 50px; background: rgba(245, 158, 11, 0.25); border-radius: 50%; animation: ping-radar 2s infinite ease-in-out;"></div>
-          <div style="width: 38px; height: 38px; background: linear-gradient(135deg, #f59e0b, #d97706); border: 3px solid #ffffff; border-radius: 50%; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.7); display: flex; align-items: center; justify-content: center; font-size: 20px;">
-            🚖
+        <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 52px; height: 52px; transform: rotate(${heading}deg); transition: transform 0.4s ease;">
+          <div style="position: absolute; width: 52px; height: 52px; background: rgba(245, 158, 11, 0.25); border-radius: 50%; animation: ping-radar 2s infinite ease-in-out;"></div>
+          <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #f59e0b, #d97706); border: 3px solid #ffffff; border-radius: 50%; box-shadow: 0 8px 24px rgba(245, 158, 11, 0.7); display: flex; align-items: center; justify-content: center; font-size: 22px;">
+            ${vehicleEmoji}
           </div>
         </div>
       `,
-      iconSize: [50, 50],
-      iconAnchor: [25, 25],
+      iconSize: [52, 52],
+      iconAnchor: [26, 26],
     });
   }
 };
@@ -83,19 +89,18 @@ const MapEventsHandler: React.FC<{ onMapClick?: (lat: number, lng: number) => vo
   return null;
 };
 
-const MapBoundsUpdater: React.FC<{ pickup?: LocationPoint; dropoff?: LocationPoint; driverPos?: { lat: number; lng: number } }> = ({ pickup, dropoff, driverPos }) => {
+const MapBoundsUpdater: React.FC<{ pickup?: LocationPoint; dropoff?: LocationPoint }> = ({ pickup, dropoff }) => {
   const map = useMap();
 
   useEffect(() => {
     if (pickup && dropoff) {
       const points: [number, number][] = [[pickup.lat, pickup.lng], [dropoff.lat, dropoff.lng]];
-      if (driverPos) points.push([driverPos.lat, driverPos.lng]);
       const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
     } else if (pickup) {
       map.setView([pickup.lat, pickup.lng], 14);
     }
-  }, [map, pickup, dropoff, driverPos]);
+  }, [map, pickup?.lat, pickup?.lng, dropoff?.lat, dropoff?.lng]);
 
   return null;
 };
@@ -104,6 +109,8 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
   pickup,
   dropoff,
   driverPos,
+  driverHeading = 0,
+  vehicleIcon = '🚖',
   onMapClick,
   interactive = true,
   showSurgeHotspots = false,
@@ -141,7 +148,7 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
 
         <MapEventsHandler onMapClick={onMapClick} />
-        <MapBoundsUpdater pickup={pickup} dropoff={dropoff} driverPos={driverPos} />
+        <MapBoundsUpdater pickup={pickup} dropoff={dropoff} />
 
         {/* Hotspot surge circles overlay */}
         {showSurgeHotspots &&
@@ -210,13 +217,18 @@ export const LeafletMap: React.FC<LeafletMapProps> = ({
 
         {/* Live Assigned Driver Marker */}
         {driverPos && (
-          <Marker position={[driverPos.lat, driverPos.lng]} icon={createCustomIcon('driver')}>
+          <Marker
+            position={[driverPos.lat, driverPos.lng]}
+            icon={createCustomIcon('driver', driverHeading, vehicleIcon)}
+          >
             <Popup>
               <div className="text-xs p-1">
                 <span className="font-extrabold text-amber-400 block text-xs">
-                  🚖 Vikram Singh (White Swift Dzire)
+                  {vehicleIcon} Vikram Singh (White Swift Dzire)
                 </span>
-                <span className="text-slate-300 font-mono text-[11px] block mt-0.5">Plate: KA-04-EV-7788</span>
+                <span className="text-slate-300 font-mono text-[11px] block mt-0.5">
+                  Plate: KA-04-EV-7788
+                </span>
               </div>
             </Popup>
           </Marker>

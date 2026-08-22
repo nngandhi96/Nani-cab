@@ -8,7 +8,7 @@ import type {
   LocationPoint,
   VehicleType,
 } from '../types';
-import { PRESET_LOCATIONS, calculateDistance, calculateFare } from '../utils/mockData';
+import { PRESET_LOCATIONS, calculateDistance, calculateFare, generateRoutePoints } from '../utils/mockData';
 import { supabase, isSupabaseConfigured, mapDbRowToRide, mapRideToDbRow } from '../lib/supabase';
 
 interface AppContextType {
@@ -55,9 +55,11 @@ interface AppContextType {
   cancelRide: () => void;
   resetRide: () => void;
 
-  // Driver Real-time simulation location
+  // Driver Real-time simulation location & heading
   driverPos: { lat: number; lng: number };
+  driverHeading: number;
   setDriverPos: (pos: { lat: number; lng: number } | ((prev: { lat: number; lng: number }) => { lat: number; lng: number })) => void;
+  setDriverHeading: (heading: number) => void;
 
   // Notifications
   notification: string | null;
@@ -148,6 +150,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     lng: 77.618,
   });
 
+  const [driverHeading, setDriverHeading] = useState<number>(0);
+
   const [notification, setNotification] = useState<string | null>(null);
 
   // Legal Modal state
@@ -178,7 +182,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (payload) localStorage.setItem('nani_current_ride', JSON.stringify(payload));
           else localStorage.removeItem('nani_current_ride');
         } else if (type === 'SYNC_DRIVER_POS') {
-          setDriverPos(payload);
+          if (payload?.pos) {
+            setDriverPos(payload.pos);
+            if (typeof payload.heading === 'number') setDriverHeading(payload.heading);
+          } else {
+            setDriverPos(payload);
+          }
         } else if (type === 'SYNC_NOTIFICATION') {
           setNotification(payload);
           setTimeout(() => setNotification(null), 4000);
@@ -255,6 +264,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
   }, []);
+
+  // 3. Centralized Autonomous Vehicle Movement Simulation (Moves smoothly along route)
+  useEffect(() => {
+    if (!currentRide) return;
+
+    // A. Driver moving towards pickup when ride is accepted
+    if (currentRide.status === 'accepted') {
+      const targetPickup = currentRide.pickup;
+      const interval = setInterval(() => {
+        setDriverPos((prev) => {
+          const dLat = targetPickup.lat - prev.lat;
+          const dLng = targetPickup.lng - prev.lng;
+          const dist = Math.sqrt(dLat * dLat + dLng * dLng);
+
+          if (dist < 0.0002) {
+            return prev;
+          }
+
+          const nextLat = prev.lat + dLat * 0.15;
+          const nextLng = prev.lng + dLng * 0.15;
+          const heading = (Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360;
+          setDriverHeading(heading);
+
+          const nextPos = { lat: nextLat, lng: nextLng };
+          broadcast('SYNC_DRIVER_POS', { pos: nextPos, heading });
+          return nextPos;
+        });
+      }, 700);
+
+      return () => clearInterval(interval);
+    }
+
+    // B. Driver cruising along the route to destination when in_transit
+    if (currentRide.status === 'in_transit') {
+      const points = generateRoutePoints(currentRide.pickup, currentRide.dropoff, 60);
+      let stepIndex = 0;
+
+      // Check if driver is already partially through
+      let minDistance = Infinity;
+      points.forEach((pt: { lat: number; lng: number }, idx: number) => {
+        const d = Math.hypot(pt.lat - driverPos.lat, pt.lng - driverPos.lng);
+        if (d < minDistance) {
+          minDistance = d;
+          stepIndex = idx;
+        }
+      });
+
+      const interval = setInterval(() => {
+        if (stepIndex < points.length) {
+          const currentPoint = points[stepIndex];
+          const nextPoint = points[Math.min(stepIndex + 1, points.length - 1)];
+
+          const dLat = nextPoint.lat - currentPoint.lat;
+          const dLng = nextPoint.lng - currentPoint.lng;
+          const heading =
+            dLat === 0 && dLng === 0
+              ? 0
+              : (Math.atan2(dLng, dLat) * (180 / Math.PI) + 360) % 360;
+
+          setDriverHeading(heading);
+          setDriverPos(currentPoint);
+          broadcast('SYNC_DRIVER_POS', { pos: currentPoint, heading });
+          stepIndex++;
+        }
+      }, 700);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentRide?.status, currentRide?.id]);
 
   const broadcast = (type: string, payload: any) => {
     if (broadcastChannelRef.current) {
@@ -338,6 +416,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fare = calculateFare(dist, selectedVehicle);
     const mockOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
+    // Spawn driver close to rider's pickup (~600m)
+    const initialDriverPos = {
+      lat: riderPickup.lat + 0.005,
+      lng: riderPickup.lng + 0.004,
+    };
+    setDriverPos(initialDriverPos);
+    setDriverHeading(45);
+
     const newRide: RideRequest = {
       id: 'RIDE-' + Math.floor(10000 + Math.random() * 90000),
       riderId: 'RIDER-99',
@@ -353,6 +439,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       otp: mockOtp,
       status: 'requested',
       paymentMethod,
+      driverLat: initialDriverPos.lat,
+      driverLng: initialDriverPos.lng,
+      driverHeading: 45,
       createdAt: Date.now(),
     };
 
@@ -376,8 +465,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       driverRating: 4.85,
       vehicleModel: 'White Swift Dzire (AC)',
       vehiclePlate: 'KA-04-EV-7788',
-      driverLat: driverPos.lat,
-      driverLng: driverPos.lng,
+      driverLat: driverPos.lat || currentRide.pickup.lat + 0.005,
+      driverLng: driverPos.lng || currentRide.pickup.lng + 0.004,
+      driverHeading: driverHeading || 45,
     };
 
     syncRideState(updatedRide);
@@ -525,7 +615,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         resetRide,
 
         driverPos,
+        driverHeading,
         setDriverPos: updateDriverPos,
+        setDriverHeading,
 
         notification,
         setNotification,

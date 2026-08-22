@@ -73,6 +73,7 @@ export interface RideRequest {
   vehiclePlate?: string;
   driverLat?: number;
   driverLng?: number;
+  driverHeading?: number;
   
   createdAt: number;
 }

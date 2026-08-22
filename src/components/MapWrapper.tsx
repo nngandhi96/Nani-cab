@@ -23,10 +23,20 @@ export const MapWrapper: React.FC<MapWrapperProps> = ({
   interactive = true,
   showSurgeHotspots = false,
 }) => {
-  const { mapEngine, setMapEngine, googleApiKey, setGoogleApiKey } = useApp();
+  const { mapEngine, setMapEngine, googleApiKey, setGoogleApiKey, driverHeading, currentRide, selectedVehicle } = useApp();
   const [keyModalOpen, setKeyModalOpen] = useState(false);
   const [inputKey, setInputKey] = useState(googleApiKey);
   const [googleLoadFailed, setGoogleLoadFailed] = useState(false);
+
+  const vehicleType = currentRide?.vehicleType || selectedVehicle;
+  const vehicleIcons: Record<string, string> = {
+    auto: '🛺',
+    bike: '🏍️',
+    mini: '🚗',
+    sedan: '🚘',
+    suv: '🚙',
+  };
+  const vehicleEmoji = vehicleIcons[vehicleType] || '🚖';
 
   const handleSaveKey = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,6 +72,8 @@ export const MapWrapper: React.FC<MapWrapperProps> = ({
           pickup={pickup}
           dropoff={dropoff}
           driverPos={driverPos}
+          driverHeading={driverHeading}
+          vehicleIcon={vehicleEmoji}
           onMapClick={onMapClick}
           interactive={interactive}
           showSurgeHotspots={showSurgeHotspots}

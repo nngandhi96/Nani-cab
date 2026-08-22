@@ -25,8 +25,6 @@ import {
   CornerUpRight,
 } from 'lucide-react';
 import type { DriverDocuments } from '../types';
-import { generateRoutePoints } from '../utils/mockData';
-
 
 export const DriverDashboard: React.FC = () => {
   const {
@@ -40,7 +38,6 @@ export const DriverDashboard: React.FC = () => {
     verifyOtpAndStartTrip,
     completeTrip,
     driverPos,
-    setDriverPos,
   } = useApp();
 
   const [otpInput, setOtpInput] = useState('');
@@ -69,31 +66,7 @@ export const DriverDashboard: React.FC = () => {
     }
   }, [currentRide?.status, currentRide?.id]);
 
-  // Live driver position interpolation simulation
-  useEffect(() => {
-    if (!currentRide) return;
 
-    if (currentRide.status === 'accepted') {
-      const pickupPos = currentRide.pickup;
-      const interval = setInterval(() => {
-        setDriverPos((prev) => ({
-          lat: prev.lat + (pickupPos.lat - prev.lat) * 0.1,
-          lng: prev.lng + (pickupPos.lng - prev.lng) * 0.1,
-        }));
-      }, 1000);
-      return () => clearInterval(interval);
-    } else if (currentRide.status === 'in_transit') {
-      const routePoints = generateRoutePoints(currentRide.pickup, currentRide.dropoff, 25);
-      let stepIndex = 0;
-      const interval = setInterval(() => {
-        if (stepIndex < routePoints.length) {
-          setDriverPos(routePoints[stepIndex]);
-          stepIndex++;
-        }
-      }, 1200);
-      return () => clearInterval(interval);
-    }
-  }, [currentRide?.status, currentRide?.pickup, currentRide?.dropoff, setDriverPos]);
 
   const handleAcceptRide = () => {
     sounds.playAcceptChime();
