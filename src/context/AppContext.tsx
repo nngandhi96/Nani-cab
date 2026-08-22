@@ -57,7 +57,7 @@ interface AppContextType {
 
   // Driver Real-time simulation location
   driverPos: { lat: number; lng: number };
-  setDriverPos: (pos: { lat: number; lng: number }) => void;
+  setDriverPos: (pos: { lat: number; lng: number } | ((prev: { lat: number; lng: number }) => { lat: number; lng: number })) => void;
 
   // Notifications
   notification: string | null;
@@ -454,24 +454,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     syncRideState(null);
   };
 
-  const updateDriverPos = async (pos: { lat: number; lng: number }) => {
-    setDriverPos(pos);
-    broadcast('SYNC_DRIVER_POS', pos);
+  const updateDriverPos = (
+    posOrUpdater: { lat: number; lng: number } | ((prev: { lat: number; lng: number }) => { lat: number; lng: number })
+  ) => {
+    setDriverPos((prev) => {
+      const nextPos = typeof posOrUpdater === 'function' ? posOrUpdater(prev) : posOrUpdater;
+      broadcast('SYNC_DRIVER_POS', nextPos);
 
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase.from('driver_locations').upsert({
-          driver_id: 'DRIVER-404',
-          driver_name: 'Vikram Singh',
-          lat: pos.lat,
-          lng: pos.lng,
-          is_online: true,
-          updated_at: new Date().toISOString(),
-        });
-      } catch (err) {
-        console.error('Supabase driver location upsert error:', err);
+      if (isSupabaseConfigured && supabase) {
+        (async () => {
+          try {
+            const { error } = await supabase
+              .from('driver_locations')
+              .upsert({
+                driver_id: 'DRIVER-404',
+                driver_name: 'Vikram Singh',
+                lat: nextPos.lat,
+                lng: nextPos.lng,
+                is_online: true,
+                updated_at: new Date().toISOString(),
+              });
+            if (error) console.error('Supabase driver location upsert error:', error);
+          } catch (err) {
+            console.error('Supabase driver location upsert error:', err);
+          }
+        })();
       }
-    }
+      return nextPos;
+    });
   };
 
   return (

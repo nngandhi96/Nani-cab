@@ -74,11 +74,12 @@ export const DriverDashboard: React.FC = () => {
     if (!currentRide) return;
 
     if (currentRide.status === 'accepted') {
+      const pickupPos = currentRide.pickup;
       const interval = setInterval(() => {
-        setDriverPos({
-          lat: driverPos.lat + (currentRide.pickup.lat - driverPos.lat) * 0.1,
-          lng: driverPos.lng + (currentRide.pickup.lng - driverPos.lng) * 0.1,
-        });
+        setDriverPos((prev) => ({
+          lat: prev.lat + (pickupPos.lat - prev.lat) * 0.1,
+          lng: prev.lng + (pickupPos.lng - prev.lng) * 0.1,
+        }));
       }, 1000);
       return () => clearInterval(interval);
     } else if (currentRide.status === 'in_transit') {
@@ -92,7 +93,7 @@ export const DriverDashboard: React.FC = () => {
       }, 1200);
       return () => clearInterval(interval);
     }
-  }, [currentRide?.status]);
+  }, [currentRide?.status, currentRide?.pickup, currentRide?.dropoff, setDriverPos]);
 
   const handleAcceptRide = () => {
     sounds.playAcceptChime();
