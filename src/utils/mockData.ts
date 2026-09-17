@@ -1,4 +1,4 @@
-import type { LocationPoint, VehicleOption, VehicleType } from '../types';
+import type { LocationPoint, VehicleOption, VehicleType, DriverApplicant } from '../types';
 
 export const PRESET_LOCATIONS: LocationPoint[] = [
   {
@@ -139,6 +139,178 @@ export const HOTSPOT_SURGE_ZONES = [
   { name: 'Koramangala Club Zone', lat: 12.9352, lng: 77.6245, radiusMeters: 2000, surgeText: '⚡ 1.3x Surge' },
 ];
 
+export const INITIAL_DRIVER_APPLICANTS: DriverApplicant[] = [
+  {
+    id: 'DRV-101',
+    name: 'Vikram Singh',
+    phone: '+91 98765 11111',
+    vehicleModel: 'Maruti Swift Dzire AC',
+    vehiclePlate: 'KA-04-EV-7788',
+    vehicleType: 'sedan',
+    city: 'Bengaluru (Nagavara / Manyata)',
+    rating: 4.85,
+    completedRides: 148,
+    registeredAt: '2026-02-14',
+    overallStatus: 'pending',
+    docs: {
+      license: {
+        status: 'uploaded',
+        docNo: 'KA04-20220019283',
+        expiry: '2032-08-15',
+        issuedBy: 'RTO Yeshwanthpur, Bengaluru',
+        lastUpdated: '2026-02-24',
+      },
+      rc: {
+        status: 'uploaded',
+        docNo: 'RC-KA04EV7788-991',
+        expiry: '2035-11-20',
+        issuedBy: 'Transport Dept Karnataka',
+        lastUpdated: '2026-02-24',
+      },
+      insurance: {
+        status: 'uploaded',
+        docNo: 'HDFC-ERGO-COMM-88910',
+        expiry: '2027-04-30',
+        issuedBy: 'HDFC ERGO General Insurance',
+        lastUpdated: '2026-02-24',
+      },
+      identity: {
+        status: 'uploaded',
+        docNo: 'UIDAI-XXXX-XXXX-4819',
+        issuedBy: 'Govt of India / Police Verified',
+        lastUpdated: '2026-02-24',
+      },
+    },
+  },
+  {
+    id: 'DRV-102',
+    name: 'Rajesh M. Kumar',
+    phone: '+91 98450 67123',
+    vehicleModel: 'Maruti WagonR Green CNG',
+    vehiclePlate: 'KA-01-MJ-1290',
+    vehicleType: 'mini',
+    city: 'Bengaluru (Koramangala / HSR)',
+    rating: 4.92,
+    completedRides: 312,
+    registeredAt: '2026-01-10',
+    overallStatus: 'verified',
+    docs: {
+      license: {
+        status: 'verified',
+        docNo: 'KA01-20190048123',
+        expiry: '2030-05-19',
+        issuedBy: 'RTO Koramangala',
+        lastUpdated: '2026-01-11',
+      },
+      rc: {
+        status: 'verified',
+        docNo: 'RC-KA01MJ1290-334',
+        expiry: '2034-03-12',
+        issuedBy: 'Transport Dept Karnataka',
+        lastUpdated: '2026-01-11',
+      },
+      insurance: {
+        status: 'verified',
+        docNo: 'BAJAJ-ALLIANZ-771829',
+        expiry: '2027-02-18',
+        issuedBy: 'Bajaj Allianz Commercial',
+        lastUpdated: '2026-01-11',
+      },
+      identity: {
+        status: 'verified',
+        docNo: 'UIDAI-XXXX-XXXX-9901',
+        issuedBy: 'Govt of India',
+        lastUpdated: '2026-01-11',
+      },
+    },
+  },
+  {
+    id: 'DRV-103',
+    name: 'Amit Yadav',
+    phone: '+91 97312 88450',
+    vehicleModel: 'Maruti Ertiga Hybrid (6 Seater)',
+    vehiclePlate: 'KA-05-AB-4321',
+    vehicleType: 'suv',
+    city: 'Bengaluru (Airport Corridor / Hebbal)',
+    rating: 4.78,
+    completedRides: 89,
+    registeredAt: '2026-02-20',
+    overallStatus: 'pending',
+    docs: {
+      license: {
+        status: 'verified',
+        docNo: 'KA05-20210088712',
+        expiry: '2031-10-10',
+        issuedBy: 'RTO Jayanagar',
+        lastUpdated: '2026-02-21',
+      },
+      rc: {
+        status: 'uploaded',
+        docNo: 'RC-KA05AB4321-889',
+        expiry: '2036-09-01',
+        issuedBy: 'Transport Dept Karnataka',
+        lastUpdated: '2026-02-22',
+      },
+      insurance: {
+        status: 'rejected',
+        docNo: 'TATA-AIG-EXPIRED-001',
+        expiry: '2025-12-31',
+        issuedBy: 'Tata AIG Insurance',
+        rejectionReason: 'Policy expired on Dec 31, 2025. Please upload active commercial comprehensive insurance policy.',
+        lastUpdated: '2026-02-23',
+      },
+      identity: {
+        status: 'uploaded',
+        docNo: 'UIDAI-XXXX-XXXX-3342',
+        issuedBy: 'Govt of India',
+        lastUpdated: '2026-02-22',
+      },
+    },
+  },
+  {
+    id: 'DRV-104',
+    name: 'Priya Verma',
+    phone: '+91 99001 54321',
+    vehicleModel: 'Mahindra Treo Electric Auto',
+    vehiclePlate: 'KA-03-EV-8822',
+    vehicleType: 'auto',
+    city: 'Bengaluru (Indiranagar / MG Road)',
+    rating: 4.96,
+    completedRides: 420,
+    registeredAt: '2025-12-05',
+    overallStatus: 'verified',
+    docs: {
+      license: {
+        status: 'verified',
+        docNo: 'KA03-20200034190',
+        expiry: '2030-11-15',
+        issuedBy: 'RTO Indiranagar',
+        lastUpdated: '2025-12-06',
+      },
+      rc: {
+        status: 'verified',
+        docNo: 'RC-KA03EV8822-110',
+        expiry: '2035-08-20',
+        issuedBy: 'Transport Dept Karnataka',
+        lastUpdated: '2025-12-06',
+      },
+      insurance: {
+        status: 'verified',
+        docNo: 'ICICI-LOMBARD-EV-6651',
+        expiry: '2027-01-25',
+        issuedBy: 'ICICI Lombard General',
+        lastUpdated: '2025-12-06',
+      },
+      identity: {
+        status: 'verified',
+        docNo: 'UIDAI-XXXX-XXXX-1288',
+        issuedBy: 'Govt of India',
+        lastUpdated: '2025-12-06',
+      },
+    },
+  },
+];
+
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
@@ -177,4 +349,3 @@ export function generateRoutePoints(
   }
   return points;
 }
-

@@ -1,15 +1,60 @@
-export type UserRole = 'rider' | 'driver' | null;
+export type UserRole = 'rider' | 'driver' | 'admin' | null;
 
 export type MapEngine = 'google' | 'leaflet';
 
-export type DriverDocumentStatus = 'pending' | 'uploaded' | 'verified';
+export type DriverDocumentStatus = 'pending' | 'uploaded' | 'verified' | 'rejected';
 
+export interface DriverDocumentInfo {
+  status: DriverDocumentStatus;
+  docNo?: string;
+  expiry?: string;
+  issuedBy?: string;
+  rejectionReason?: string;
+  lastUpdated?: string;
+}
 
 export interface DriverDocuments {
   license: DriverDocumentStatus;
   rc: DriverDocumentStatus;
   insurance: DriverDocumentStatus;
   identity: DriverDocumentStatus;
+  details?: {
+    license?: DriverDocumentInfo;
+    rc?: DriverDocumentInfo;
+    insurance?: DriverDocumentInfo;
+    identity?: DriverDocumentInfo;
+  };
+}
+
+export interface DriverApplicant {
+  id: string;
+  name: string;
+  phone: string;
+  avatarUrl?: string;
+  vehicleModel: string;
+  vehiclePlate: string;
+  vehicleType: VehicleType;
+  city: string;
+  rating: number;
+  completedRides: number;
+  registeredAt: string;
+  overallStatus: 'verified' | 'pending' | 'rejected';
+  docs: {
+    license: DriverDocumentInfo;
+    rc: DriverDocumentInfo;
+    insurance: DriverDocumentInfo;
+    identity: DriverDocumentInfo;
+  };
+}
+
+export interface AdminStats {
+  totalDrivers: number;
+  verifiedDrivers: number;
+  pendingApprovals: number;
+  rejectedDrivers: number;
+  activeOnlineDrivers: number;
+  totalTripsToday: number;
+  platformRevenueToday: number;
 }
 
 export type VehicleType = 'auto' | 'bike' | 'mini' | 'sedan' | 'suv';
@@ -86,4 +131,3 @@ export interface DriverStats {
   isOnline: boolean;
   hoursOnline?: number;
 }
-

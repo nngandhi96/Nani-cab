@@ -3,12 +3,20 @@ import type {
   UserRole,
   MapEngine,
   DriverDocuments,
+  DriverDocumentStatus,
   DriverStats,
   RideRequest,
   LocationPoint,
   VehicleType,
+  DriverApplicant,
 } from '../types';
-import { PRESET_LOCATIONS, calculateDistance, calculateFare, generateRoutePoints } from '../utils/mockData';
+import {
+  PRESET_LOCATIONS,
+  INITIAL_DRIVER_APPLICANTS,
+  calculateDistance,
+  calculateFare,
+  generateRoutePoints,
+} from '../utils/mockData';
 import { supabase, isSupabaseConfigured, mapDbRowToRide, mapRideToDbRow } from '../lib/supabase';
 
 interface AppContextType {
@@ -16,11 +24,26 @@ interface AppContextType {
   role: UserRole;
   phone: string;
   isLoggedIn: boolean;
-  activeView: 'auth' | 'role_select' | 'rider' | 'driver';
+  activeView: 'auth' | 'role_select' | 'rider' | 'driver' | 'admin';
   login: (phone: string) => void;
   selectRole: (role: UserRole) => void;
   logout: () => void;
-  switchView: (view: 'rider' | 'driver') => void;
+  switchView: (view: 'rider' | 'driver' | 'admin') => void;
+
+  // Admin Portal & Authentication
+  isAdminLoggedIn: boolean;
+  showAdminLogin: boolean;
+  setShowAdminLogin: (show: boolean) => void;
+  openAdminPortal: () => void;
+  adminLogin: (emailOrId: string, passOrPin: string) => boolean;
+  adminLogout: () => void;
+
+  // Admin Driver Verification State & Actions
+  driverApplicants: DriverApplicant[];
+  verifyDriverDoc: (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity') => void;
+  rejectDriverDoc: (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity', reason: string) => void;
+  requestReuploadDoc: (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity', reason?: string) => void;
+  approveAllDriverDocs: (driverId: string) => void;
 
   // Map Engine & API Key State
   mapEngine: MapEngine;
@@ -30,8 +53,7 @@ interface AppContextType {
 
   // Driver Document State
   driverDocs: DriverDocuments;
-  updateDriverDoc: (docKey: keyof DriverDocuments, status: DriverDocuments[keyof DriverDocuments]) => void;
-
+  updateDriverDoc: (docKey: keyof DriverDocuments, status: DriverDocumentStatus, details?: any) => void;
 
   // Driver Online & Stats State
   driverStats: DriverStats;
@@ -45,7 +67,7 @@ interface AppContextType {
   setRiderPickup: (loc: LocationPoint) => void;
   setRiderDropoff: (loc: LocationPoint) => void;
   setSelectedVehicle: (v: VehicleType) => void;
-  
+
   // Actions
   bookRide: (paymentMethod: 'cash' | 'upi' | 'card') => void;
   acceptRide: (rideId: string) => void;
@@ -58,7 +80,9 @@ interface AppContextType {
   // Driver Real-time simulation location & heading
   driverPos: { lat: number; lng: number };
   driverHeading: number;
-  setDriverPos: (pos: { lat: number; lng: number } | ((prev: { lat: number; lng: number }) => { lat: number; lng: number })) => void;
+  setDriverPos: (
+    pos: { lat: number; lng: number } | ((prev: { lat: number; lng: number }) => { lat: number; lng: number })
+  ) => void;
   setDriverHeading: (heading: number) => void;
 
   // Notifications
@@ -74,18 +98,24 @@ interface AppContextType {
 }
 
 const DEFAULT_DOCS: DriverDocuments = {
-  license: 'pending',
-  rc: 'pending',
-  insurance: 'pending',
-  identity: 'pending',
+  license: 'uploaded',
+  rc: 'uploaded',
+  insurance: 'uploaded',
+  identity: 'uploaded',
+  details: {
+    license: { status: 'uploaded', docNo: 'KA04-20220019283', expiry: '2032-08-15', issuedBy: 'RTO Yeshwanthpur' },
+    rc: { status: 'uploaded', docNo: 'RC-KA04EV7788-991', expiry: '2035-11-20', issuedBy: 'Transport Dept Karnataka' },
+    insurance: { status: 'uploaded', docNo: 'HDFC-ERGO-COMM-88910', expiry: '2027-04-30', issuedBy: 'HDFC ERGO General' },
+    identity: { status: 'uploaded', docNo: 'UIDAI-XXXX-XXXX-4819', issuedBy: 'Govt of India' },
+  },
 };
 
 const DEFAULT_STATS: DriverStats = {
   todayEarnings: 1240,
   completedRides: 5,
   acceptanceRate: 94,
-  rating: 4.8,
-  isOnline: true,
+  rating: 4.85,
+  isOnline: false,
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -95,13 +125,40 @@ const BROADCAST_CHANNEL_NAME = 'nani_cab_realtime_v1';
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [phone, setPhone] = useState<string>(() => localStorage.getItem('nani_phone') || '');
   const [role, setRole] = useState<UserRole>(() => (localStorage.getItem('nani_role') as UserRole) || null);
-  const [activeView, setActiveView] = useState<'auth' | 'role_select' | 'rider' | 'driver'>(() => {
+
+  // Check URL query param or hash for secret admin access
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    return sessionStorage.getItem('nani_admin_auth') === 'true';
+  });
+
+  const [showAdminLogin, setShowAdminLogin] = useState<boolean>(false);
+
+  const [activeView, setActiveView] = useState<'auth' | 'role_select' | 'rider' | 'driver' | 'admin'>(() => {
+    if (typeof window !== 'undefined') {
+      const isUrlAdmin =
+        window.location.search.includes('admin') ||
+        window.location.hash.includes('admin') ||
+        window.location.pathname.includes('/admin');
+
+      if (isUrlAdmin) {
+        if (sessionStorage.getItem('nani_admin_auth') === 'true') {
+          return 'admin';
+        }
+      }
+    }
+
     const savedRole = localStorage.getItem('nani_role');
     const savedPhone = localStorage.getItem('nani_phone');
     if (!savedPhone) return 'auth';
     if (savedRole === 'driver') return 'driver';
     if (savedRole === 'rider') return 'rider';
     return 'role_select';
+  });
+
+  // Admin Driver Applicants State
+  const [driverApplicants, setDriverApplicants] = useState<DriverApplicant[]>(() => {
+    const saved = localStorage.getItem('nani_driver_applicants');
+    return saved ? JSON.parse(saved) : INITIAL_DRIVER_APPLICANTS;
   });
 
   // Map Engine & Google Maps API Key State
@@ -126,7 +183,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [driverDocs, setDriverDocs] = useState<DriverDocuments>(() => {
-
     const saved = localStorage.getItem('nani_driver_docs');
     return saved ? JSON.parse(saved) : DEFAULT_DOCS;
   });
@@ -151,7 +207,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [driverHeading, setDriverHeading] = useState<number>(0);
-
   const [notification, setNotification] = useState<string | null>(null);
 
   // Legal Modal state
@@ -169,7 +224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
 
-  // 1. Setup Local BroadcastChannel (Browser tabs fallback)
+  // Setup Local BroadcastChannel for Cross-tab Instant Sync
   useEffect(() => {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       const channel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
@@ -191,6 +246,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (type === 'SYNC_NOTIFICATION') {
           setNotification(payload);
           setTimeout(() => setNotification(null), 4000);
+        } else if (type === 'SYNC_DRIVER_DOCS') {
+          setDriverDocs(payload);
+          localStorage.setItem('nani_driver_docs', JSON.stringify(payload));
+        } else if (type === 'SYNC_APPLICANTS') {
+          setDriverApplicants(payload);
+          localStorage.setItem('nani_driver_applicants', JSON.stringify(payload));
         }
       };
 
@@ -200,11 +261,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // 2. Setup Supabase Realtime Subscriptions (Cross-device real-time sync)
+  // Listen to URL changes for hidden admin gateway
+  useEffect(() => {
+    const handleUrlCheck = () => {
+      const isUrlAdmin =
+        window.location.search.includes('admin') ||
+        window.location.hash.includes('admin') ||
+        window.location.pathname.includes('/admin');
+
+      if (isUrlAdmin) {
+        const isAuth = sessionStorage.getItem('nani_admin_auth') === 'true';
+        if (isAuth) {
+          setActiveView('admin');
+        } else {
+          setShowAdminLogin(true);
+        }
+      }
+    };
+
+    handleUrlCheck();
+    window.addEventListener('popstate', handleUrlCheck);
+    window.addEventListener('hashchange', handleUrlCheck);
+    return () => {
+      window.removeEventListener('popstate', handleUrlCheck);
+      window.removeEventListener('hashchange', handleUrlCheck);
+    };
+  }, []);
+
+  // Setup Supabase Realtime Subscriptions
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) return;
 
-    // Fetch active ride on initial load
     supabase
       .from('rides')
       .select('*')
@@ -220,7 +307,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
-    // Realtime channel for rides table updates
     const rideChannel = supabase
       .channel('supabase_realtime_rides')
       .on(
@@ -239,37 +325,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
       .subscribe();
 
-    // Realtime channel for driver locations
-    const driverLocChannel = supabase
-      .channel('supabase_realtime_driver_loc')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'driver_locations' },
-        (payload) => {
-          const newLoc = payload.new as any;
-          if (newLoc && newLoc.lat && newLoc.lng) {
-            setDriverPos({
-              lat: Number(newLoc.lat),
-              lng: Number(newLoc.lng),
-            });
-          }
-        }
-      )
-      .subscribe();
-
     return () => {
-      if (supabase) {
-        supabase.removeChannel(rideChannel);
-        supabase.removeChannel(driverLocChannel);
-      }
+      supabase?.removeChannel(rideChannel);
     };
   }, []);
 
-  // 3. Centralized Autonomous Vehicle Movement Simulation (Moves smoothly along route)
+  // Simulated GPS Driver Movement & Navigation
   useEffect(() => {
     if (!currentRide) return;
 
-    // A. Driver moving towards pickup when ride is accepted
+    // A. Driver moving towards pickup
     if (currentRide.status === 'accepted') {
       const targetPickup = currentRide.pickup;
       const interval = setInterval(() => {
@@ -296,12 +361,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return () => clearInterval(interval);
     }
 
-    // B. Driver cruising along the route to destination when in_transit
+    // B. Driver cruising along route to dropoff
     if (currentRide.status === 'in_transit') {
       const points = generateRoutePoints(currentRide.pickup, currentRide.dropoff, 60);
       let stepIndex = 0;
 
-      // Check if driver is already partially through
       let minDistance = Infinity;
       points.forEach((pt: { lat: number; lng: number }, idx: number) => {
         const d = Math.hypot(pt.lat - driverPos.lat, pt.lng - driverPos.lng);
@@ -366,6 +430,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     broadcast('SYNC_RIDE', ride);
   };
 
+  // Auth Functions
   const login = (inputPhone: string) => {
     setPhone(inputPhone);
     localStorage.setItem('nani_phone', inputPhone);
@@ -388,19 +453,332 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveView('auth');
   };
 
-  const switchView = (view: 'rider' | 'driver') => {
+  const switchView = (view: 'rider' | 'driver' | 'admin') => {
+    if (view === 'admin') {
+      if (isAdminLoggedIn) {
+        setActiveView('admin');
+      } else {
+        setShowAdminLogin(true);
+      }
+      return;
+    }
     setRole(view);
     localStorage.setItem('nani_role', view);
     setActiveView(view);
   };
 
-  const updateDriverDoc = (docKey: keyof DriverDocuments, status: DriverDocuments[keyof DriverDocuments]) => {
-    const updated = { ...driverDocs, [docKey]: status };
-    setDriverDocs(updated);
-    localStorage.setItem('nani_driver_docs', JSON.stringify(updated));
+  // Admin Authentication Functions
+  const adminLogin = (emailOrId: string, passOrPin: string): boolean => {
+    const cleanId = emailOrId.trim().toLowerCase();
+    const cleanPass = passOrPin.trim();
+
+    const isValid =
+      (cleanId === 'admin@nanicab.com' && (cleanPass === 'NaniAdmin@2026' || cleanPass === 'admin123')) ||
+      (cleanId === 'admin' && (cleanPass === '987654' || cleanPass === 'admin123')) ||
+      (cleanId === 'nanicab' && cleanPass === 'admin2026');
+
+    if (isValid) {
+      setIsAdminLoggedIn(true);
+      sessionStorage.setItem('nani_admin_auth', 'true');
+      setShowAdminLogin(false);
+      setActiveView('admin');
+      return true;
+    }
+    return false;
+  };
+
+  const adminLogout = () => {
+    setIsAdminLoggedIn(false);
+    sessionStorage.removeItem('nani_admin_auth');
+    if (activeView === 'admin') {
+      const savedRole = localStorage.getItem('nani_role');
+      const savedPhone = localStorage.getItem('nani_phone');
+      if (!savedPhone) setActiveView('auth');
+      else if (savedRole === 'driver') setActiveView('driver');
+      else if (savedRole === 'rider') setActiveView('rider');
+      else setActiveView('role_select');
+    }
+  };
+
+  const openAdminPortal = () => {
+    if (isAdminLoggedIn) {
+      setActiveView('admin');
+    } else {
+      setShowAdminLogin(true);
+    }
+  };
+
+  // Admin Driver Document Verification Actions
+  const updateApplicantAndSync = (updatedApplicants: DriverApplicant[]) => {
+    setDriverApplicants(updatedApplicants);
+    localStorage.setItem('nani_driver_applicants', JSON.stringify(updatedApplicants));
+    broadcast('SYNC_APPLICANTS', updatedApplicants);
+  };
+
+  const syncDriverDocsState = (newDocs: DriverDocuments) => {
+    setDriverDocs(newDocs);
+    localStorage.setItem('nani_driver_docs', JSON.stringify(newDocs));
+    broadcast('SYNC_DRIVER_DOCS', newDocs);
+  };
+
+  const verifyDriverDoc = (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity') => {
+    const updated = driverApplicants.map((applicant) => {
+      if (applicant.id === driverId) {
+        const updatedDocs = {
+          ...applicant.docs,
+          [docKey]: {
+            ...applicant.docs[docKey],
+            status: 'verified' as DriverDocumentStatus,
+            rejectionReason: undefined,
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        };
+
+        const allVerified =
+          updatedDocs.license.status === 'verified' &&
+          updatedDocs.rc.status === 'verified' &&
+          updatedDocs.insurance.status === 'verified' &&
+          updatedDocs.identity.status === 'verified';
+
+        return {
+          ...applicant,
+          overallStatus: (allVerified ? 'verified' : 'pending') as 'verified' | 'pending' | 'rejected',
+          docs: updatedDocs,
+        };
+      }
+      return applicant;
+    });
+
+    updateApplicantAndSync(updated);
+
+    // If updating current logged-in driver (DRV-101)
+    if (driverId === 'DRV-101') {
+      const nextDocs: DriverDocuments = {
+        ...driverDocs,
+        [docKey]: 'verified',
+        details: {
+          ...driverDocs.details,
+          [docKey]: {
+            ...driverDocs.details?.[docKey],
+            status: 'verified',
+            rejectionReason: undefined,
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        },
+      };
+      syncDriverDocsState(nextDocs);
+    }
+
+    const msg = `✅ Admin Verified ${docKey.toUpperCase()} for Driver ${driverId}`;
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const rejectDriverDoc = (
+    driverId: string,
+    docKey: 'license' | 'rc' | 'insurance' | 'identity',
+    reason: string
+  ) => {
+    const updated = driverApplicants.map((applicant) => {
+      if (applicant.id === driverId) {
+        const updatedDocs = {
+          ...applicant.docs,
+          [docKey]: {
+            ...applicant.docs[docKey],
+            status: 'rejected' as DriverDocumentStatus,
+            rejectionReason: reason || 'Document image is blurred or details do not match commercial compliance.',
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        };
+
+        return {
+          ...applicant,
+          overallStatus: 'rejected' as const,
+          docs: updatedDocs,
+        };
+      }
+      return applicant;
+    });
+
+    updateApplicantAndSync(updated);
+
+    // If updating current logged-in driver
+    if (driverId === 'DRV-101') {
+      const nextDocs: DriverDocuments = {
+        ...driverDocs,
+        [docKey]: 'rejected',
+        details: {
+          ...driverDocs.details,
+          [docKey]: {
+            ...driverDocs.details?.[docKey],
+            status: 'rejected',
+            rejectionReason: reason,
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        },
+      };
+      syncDriverDocsState(nextDocs);
+    }
+
+    const msg = `❌ Admin Rejected ${docKey.toUpperCase()} for Driver ${driverId}`;
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const requestReuploadDoc = (
+    driverId: string,
+    docKey: 'license' | 'rc' | 'insurance' | 'identity',
+    reason?: string
+  ) => {
+    const updated = driverApplicants.map((applicant) => {
+      if (applicant.id === driverId) {
+        const updatedDocs = {
+          ...applicant.docs,
+          [docKey]: {
+            ...applicant.docs[docKey],
+            status: 'pending' as DriverDocumentStatus,
+            rejectionReason: reason,
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        };
+        return {
+          ...applicant,
+          overallStatus: 'pending' as const,
+          docs: updatedDocs,
+        };
+      }
+      return applicant;
+    });
+
+    updateApplicantAndSync(updated);
+
+    if (driverId === 'DRV-101') {
+      const nextDocs: DriverDocuments = {
+        ...driverDocs,
+        [docKey]: 'pending',
+        details: {
+          ...driverDocs.details,
+          [docKey]: {
+            ...driverDocs.details?.[docKey],
+            status: 'pending',
+            rejectionReason: reason,
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        },
+      };
+      syncDriverDocsState(nextDocs);
+    }
+  };
+
+  const approveAllDriverDocs = (driverId: string) => {
+    const updated = driverApplicants.map((applicant) => {
+      if (applicant.id === driverId) {
+        return {
+          ...applicant,
+          overallStatus: 'verified' as const,
+          docs: {
+            license: { ...applicant.docs.license, status: 'verified' as const, rejectionReason: undefined },
+            rc: { ...applicant.docs.rc, status: 'verified' as const, rejectionReason: undefined },
+            insurance: { ...applicant.docs.insurance, status: 'verified' as const, rejectionReason: undefined },
+            identity: { ...applicant.docs.identity, status: 'verified' as const, rejectionReason: undefined },
+          },
+        };
+      }
+      return applicant;
+    });
+
+    updateApplicantAndSync(updated);
+
+    if (driverId === 'DRV-101') {
+      const nextDocs: DriverDocuments = {
+        license: 'verified',
+        rc: 'verified',
+        insurance: 'verified',
+        identity: 'verified',
+        details: {
+          license: { ...driverDocs.details?.license, status: 'verified', rejectionReason: undefined },
+          rc: { ...driverDocs.details?.rc, status: 'verified', rejectionReason: undefined },
+          insurance: { ...driverDocs.details?.insurance, status: 'verified', rejectionReason: undefined },
+          identity: { ...driverDocs.details?.identity, status: 'verified', rejectionReason: undefined },
+        },
+      };
+      syncDriverDocsState(nextDocs);
+    }
+
+    const msg = `⚡ 1-Click All Documents Approved for Driver ${driverId}!`;
+    setNotification(msg);
+    broadcast('SYNC_NOTIFICATION', msg);
+    setTimeout(() => setNotification(null), 4000);
+  };
+
+  const updateDriverDoc = (
+    docKey: keyof DriverDocuments,
+    status: DriverDocumentStatus,
+    docDetails?: any
+  ) => {
+    const updated: DriverDocuments = {
+      ...driverDocs,
+      [docKey]: status,
+      details: {
+        ...driverDocs.details,
+        [docKey]: {
+          ...driverDocs.details?.[docKey as keyof typeof driverDocs.details],
+          status,
+          ...(docDetails || {}),
+          lastUpdated: new Date().toISOString().split('T')[0],
+        },
+      },
+    };
+    syncDriverDocsState(updated);
+
+    // Also update driver applicant in admin list
+    const updatedApplicants = driverApplicants.map((app) => {
+      if (app.id === 'DRV-101') {
+        const updatedDocs = {
+          ...app.docs,
+          [docKey]: {
+            ...app.docs[docKey as keyof typeof app.docs],
+            status,
+            ...(docDetails || {}),
+            lastUpdated: new Date().toISOString().split('T')[0],
+          },
+        };
+        const allVerified =
+          updatedDocs.license.status === 'verified' &&
+          updatedDocs.rc.status === 'verified' &&
+          updatedDocs.insurance.status === 'verified' &&
+          updatedDocs.identity.status === 'verified';
+
+        return {
+          ...app,
+          overallStatus: (allVerified ? 'verified' : 'pending') as 'verified' | 'pending' | 'rejected',
+          docs: updatedDocs,
+        };
+      }
+      return app;
+    });
+
+    updateApplicantAndSync(updatedApplicants);
   };
 
   const toggleDriverOnline = () => {
+    // Compliance Guard: Verify all 4 documents before allowing driver to go online
+    const isCompliant =
+      driverDocs.license === 'verified' &&
+      driverDocs.rc === 'verified' &&
+      driverDocs.insurance === 'verified' &&
+      driverDocs.identity === 'verified';
+
+    if (!driverStats.isOnline && !isCompliant) {
+      const msg = '⚠️ Compliance Alert: Admin verification required for all 4 certificates before going online!';
+      setNotification(msg);
+      broadcast('SYNC_NOTIFICATION', msg);
+      setTimeout(() => setNotification(null), 5000);
+      return;
+    }
+
     const updated = { ...driverStats, isOnline: !driverStats.isOnline };
     setDriverStats(updated);
     localStorage.setItem('nani_driver_stats', JSON.stringify(updated));
@@ -416,7 +794,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const fare = calculateFare(dist, selectedVehicle);
     const mockOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // Spawn driver close to rider's pickup (~600m)
     const initialDriverPos = {
       lat: riderPickup.lat + 0.005,
       lng: riderPickup.lng + 0.004,
@@ -586,13 +963,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         switchView,
 
+        // Admin
+        isAdminLoggedIn,
+        showAdminLogin,
+        setShowAdminLogin,
+        openAdminPortal,
+        adminLogin,
+        adminLogout,
+        driverApplicants,
+        verifyDriverDoc,
+        rejectDriverDoc,
+        requestReuploadDoc,
+        approveAllDriverDocs,
+
         mapEngine,
         setMapEngine,
         googleApiKey,
         setGoogleApiKey,
 
         driverDocs,
-
         updateDriverDoc,
 
         driverStats,
@@ -641,4 +1030,3 @@ export const useApp = () => {
   }
   return context;
 };
-
