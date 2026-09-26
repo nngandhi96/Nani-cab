@@ -53,6 +53,7 @@ export function mapDbRowToRide(row: any): RideRequest {
     vehiclePlate: row.vehicle_plate || undefined,
     driverLat: row.driver_lat ? Number(row.driver_lat) : undefined,
     driverLng: row.driver_lng ? Number(row.driver_lng) : undefined,
+    driverHeading: row.driver_heading ? Number(row.driver_heading) : undefined,
 
     createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
   };
@@ -90,6 +91,47 @@ export function mapRideToDbRow(ride: RideRequest) {
     vehicle_plate: ride.vehiclePlate || null,
     driver_lat: ride.driverLat || null,
     driver_lng: ride.driverLng || null,
+    driver_heading: ride.driverHeading || null,
     updated_at: new Date().toISOString(),
   };
 }
+
+// Convert DB Row -> App DriverApplicant object
+export function mapDbRowToDriverApplicant(row: any): import('../types').DriverApplicant {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    avatarUrl: row.avatar_url || undefined,
+    vehicleModel: row.vehicle_model,
+    vehiclePlate: row.vehicle_plate,
+    vehicleType: row.vehicle_type,
+    city: row.city,
+    rating: Number(row.rating) || 5.0,
+    completedRides: Number(row.completed_rides) || 0,
+    registeredAt: row.registered_at ? new Date(row.registered_at).toISOString().split('T')[0] : '2026-02-14',
+    overallStatus: row.overall_status || 'pending',
+    docs: typeof row.docs === 'object' && row.docs !== null ? row.docs : JSON.parse(row.docs || '{}'),
+  };
+}
+
+// Convert App DriverApplicant object -> DB Row
+export function mapDriverApplicantToDbRow(applicant: import('../types').DriverApplicant) {
+  return {
+    id: applicant.id,
+    name: applicant.name,
+    phone: applicant.phone,
+    avatar_url: applicant.avatarUrl || null,
+    vehicle_model: applicant.vehicleModel,
+    vehicle_plate: applicant.vehiclePlate,
+    vehicle_type: applicant.vehicleType,
+    city: applicant.city,
+    rating: applicant.rating,
+    completed_rides: applicant.completedRides,
+    registered_at: applicant.registeredAt,
+    overall_status: applicant.overallStatus,
+    docs: applicant.docs,
+    updated_at: new Date().toISOString(),
+  };
+}
+

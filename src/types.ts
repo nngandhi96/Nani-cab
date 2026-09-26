@@ -2,6 +2,22 @@ export type UserRole = 'rider' | 'driver' | 'admin' | null;
 
 export type MapEngine = 'google' | 'leaflet';
 
+export type ThemeMode = 'dark' | 'light';
+
+export interface UserProfile {
+  name: string;
+  phone: string;
+  email: string;
+  city: string;
+  rating: number;
+  totalRides: number;
+  memberSince: string;
+  emergencyContact: string;
+  upiId?: string;
+  avatarUrl?: string;
+}
+
+
 export type DriverDocumentStatus = 'pending' | 'uploaded' | 'verified' | 'rejected';
 
 export interface DriverDocumentInfo {

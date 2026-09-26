@@ -20,6 +20,8 @@ import {
   Building2,
   UserCheck,
   FileCheck2,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import type { DriverApplicant, DriverDocumentStatus } from '../types';
 import { MadhubaniBackground } from '../components/MadhubaniBackground';
@@ -32,7 +34,10 @@ export const AdminDashboard: React.FC = () => {
     rejectDriverDoc,
     requestReuploadDoc,
     approveAllDriverDocs,
+    theme,
+    toggleTheme,
   } = useApp();
+
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'verified' | 'rejected'>('all');
@@ -141,6 +146,25 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle Theme"
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 text-slate-300 hover:text-amber-400 transition-all text-xs font-bold shadow-md cursor-pointer"
+            >
+              {theme === 'dark' ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-400" />
+                  <span className="hidden sm:inline">Light</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-indigo-500" />
+                  <span className="hidden sm:inline">Dark</span>
+                </>
+              )}
+            </button>
+
+            <button
               onClick={adminLogout}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-rose-500/15 text-slate-300 hover:text-rose-300 border border-slate-800 hover:border-rose-500/30 transition-all text-xs font-bold cursor-pointer"
             >
@@ -148,6 +172,7 @@ export const AdminDashboard: React.FC = () => {
               <span>Exit Admin Portal</span>
             </button>
           </div>
+
         </div>
       </header>
 

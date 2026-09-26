@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '../context/AppContext';
 
 interface MadhubaniBackgroundProps {
   opacity?: number; // Default ~0.12 to 0.15 (12% - 15%)
@@ -11,29 +12,40 @@ export const MadhubaniBackground: React.FC<MadhubaniBackgroundProps> = ({
   className = '',
   variant = 'full',
 }) => {
+  let theme: 'dark' | 'light' = 'dark';
+  try {
+    const app = useApp();
+    if (app?.theme) theme = app.theme;
+  } catch {
+    theme = 'dark';
+  }
+
+  const effectiveOpacity = theme === 'light' ? opacity * 0.75 : opacity;
+
   return (
     <div
       aria-hidden="true"
       className={`pointer-events-none absolute inset-0 overflow-hidden select-none z-0 ${className}`}
-      style={{ opacity }}
+      style={{ opacity: effectiveOpacity }}
     >
       {/* Background Image Watermark Texture */}
       <div 
-        className="absolute inset-0 bg-repeat bg-center mix-blend-screen transition-opacity duration-700"
+        className={`absolute inset-0 bg-repeat bg-center ${theme === 'light' ? 'mix-blend-multiply opacity-30' : 'mix-blend-screen'} transition-all duration-700`}
         style={{ 
           backgroundImage: 'url(/madhubani_watermark.png)', 
           backgroundSize: variant === 'login' ? '550px 550px' : '450px 450px',
-          filter: 'contrast(130%) brightness(115%)'
+          filter: theme === 'light' ? 'contrast(115%) brightness(90%)' : 'contrast(130%) brightness(115%)'
         }}
       />
 
       {/* Scalable Vector Graphics Madhubani Motifs & Borders */}
       <svg
-        className="w-full h-full absolute inset-0 text-amber-500/80 stroke-amber-400/90 fill-none"
+        className={`w-full h-full absolute inset-0 ${theme === 'light' ? 'text-amber-800/30 stroke-amber-700/35' : 'text-amber-500/80 stroke-amber-400/90'} fill-none transition-colors duration-500`}
         xmlns="http://www.w3.org/2000/svg"
         width="100%"
         height="100%"
       >
+
         <defs>
           {/* Madhubani Crosshatching Fill Pattern (Kachni Style) */}
           <pattern id="madhubani-hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">

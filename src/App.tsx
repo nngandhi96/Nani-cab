@@ -5,26 +5,34 @@ import { AuthModal } from './components/AuthModal';
 import { MobileBottomNav } from './components/MobileBottomNav';
 import { LegalModal } from './components/LegalModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { UserProfileModal } from './components/UserProfileModal';
 import { DriverDashboard } from './views/DriverDashboard';
 import { RiderDashboard } from './views/RiderDashboard';
 import { AdminDashboard } from './views/AdminDashboard';
 import { MadhubaniBackground } from './components/MadhubaniBackground';
 
+
 const MainContent: React.FC = () => {
-  const { activeView, openLegalModal } = useApp();
+  const { activeView, openLegalModal, theme } = useApp();
 
   // If in Admin Mode, render dedicated Admin Console
   if (activeView === 'admin') {
     return (
-      <>
+      <div className={theme === 'light' ? 'theme-light min-h-screen bg-slate-50 text-slate-900' : 'theme-dark min-h-screen bg-[#070a12] text-slate-100'}>
         <AdminDashboard />
         <AdminLoginModal />
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#070a12] text-slate-100 flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 pb-16 sm:pb-0 relative overflow-x-hidden">
+    <div
+      className={`min-h-screen ${
+        theme === 'light'
+          ? 'bg-slate-50 text-slate-900 theme-light'
+          : 'bg-[#070a12] text-slate-100 theme-dark'
+      } flex flex-col font-sans selection:bg-amber-400 selection:text-slate-950 pb-16 sm:pb-0 relative overflow-x-hidden transition-colors duration-300`}
+    >
       {/* Traditional Madhubani Painting Watermark Background (14% opacity) */}
       <MadhubaniBackground opacity={0.14} />
 
@@ -42,6 +50,8 @@ const MainContent: React.FC = () => {
 
       <LegalModal />
       <AdminLoginModal />
+      <UserProfileModal />
+
 
       {/* Global Footer (Zero admin links to ensure complete privacy) */}
       <footer className="border-t border-slate-800/80 bg-slate-950/80 py-4 px-6 text-center text-xs text-slate-500">

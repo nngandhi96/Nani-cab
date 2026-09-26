@@ -9,7 +9,11 @@ import type {
   LocationPoint,
   VehicleType,
   DriverApplicant,
+  ThemeMode,
+  UserProfile,
 } from '../types';
+
+
 import {
   PRESET_LOCATIONS,
   INITIAL_DRIVER_APPLICANTS,
@@ -17,7 +21,14 @@ import {
   calculateFare,
   generateRoutePoints,
 } from '../utils/mockData';
-import { supabase, isSupabaseConfigured, mapDbRowToRide, mapRideToDbRow } from '../lib/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  mapDbRowToRide,
+  mapRideToDbRow,
+  mapDbRowToDriverApplicant,
+  mapDriverApplicantToDbRow,
+} from '../lib/supabase';
 
 interface AppContextType {
   // Auth & Navigation
@@ -44,6 +55,18 @@ interface AppContextType {
   rejectDriverDoc: (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity', reason: string) => void;
   requestReuploadDoc: (driverId: string, docKey: 'license' | 'rc' | 'insurance' | 'identity', reason?: string) => void;
   approveAllDriverDocs: (driverId: string) => void;
+
+  // Theme State
+  theme: ThemeMode;
+  toggleTheme: () => void;
+  setTheme: (theme: ThemeMode) => void;
+
+  // User Profile State
+  userProfile: UserProfile;
+  updateUserProfile: (updates: Partial<UserProfile>) => void;
+  profileModalOpen: boolean;
+  setProfileModalOpen: (open: boolean) => void;
+
 
   // Map Engine & API Key State
   mapEngine: MapEngine;
@@ -118,7 +141,20 @@ const DEFAULT_STATS: DriverStats = {
   isOnline: false,
 };
 
+const DEFAULT_USER_PROFILE: UserProfile = {
+  name: 'Rahul Sharma',
+  phone: '+91 98765 43210',
+  email: 'rahul.sharma@nanicab.in',
+  city: 'Bengaluru, Karnataka',
+  rating: 4.92,
+  totalRides: 48,
+  memberSince: 'March 2024',
+  emergencyContact: '+91 98765 00001',
+  upiId: 'rahul@oksbi',
+};
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
 
 const BROADCAST_CHANNEL_NAME = 'nani_cab_realtime_v1';
 
@@ -161,10 +197,89 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : INITIAL_DRIVER_APPLICANTS;
   });
 
+  // Theme Mode State ('dark' | 'light')
+  const [theme, setThemeState] = useState<ThemeMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nani_theme') as ThemeMode;
+      if (saved === 'dark' || saved === 'light') return saved;
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+        return 'light';
+      }
+    }
+    return 'dark';
+  });
+
+  const setTheme = (newTheme: ThemeMode) => {
+    setThemeState(newTheme);
+    localStorage.setItem('nani_theme', newTheme);
+    if (typeof document !== 'undefined') {
+      if (newTheme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+    if (broadcastChannelRef.current) {
+      broadcastChannelRef.current.postMessage({ type: 'SYNC_THEME', payload: newTheme });
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (theme === 'light') {
+        document.documentElement.classList.add('light');
+        document.documentElement.classList.remove('dark');
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        document.documentElement.classList.remove('light');
+        document.documentElement.setAttribute('data-theme', 'dark');
+      }
+    }
+  }, [theme]);
+
+  // User Profile State
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = localStorage.getItem('nani_user_profile');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    const currentPhone = localStorage.getItem('nani_phone');
+    return {
+      ...DEFAULT_USER_PROFILE,
+      phone: currentPhone || DEFAULT_USER_PROFILE.phone,
+    };
+  });
+
+  const [profileModalOpen, setProfileModalOpen] = useState<boolean>(false);
+
+  const updateUserProfile = (updates: Partial<UserProfile>) => {
+    setUserProfile((prev) => {
+      const next = { ...prev, ...updates };
+      localStorage.setItem('nani_user_profile', JSON.stringify(next));
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage({ type: 'SYNC_USER_PROFILE', payload: next });
+      }
+      return next;
+    });
+  };
+
   // Map Engine & Google Maps API Key State
   const [googleApiKey, setGoogleApiKeyState] = useState<string>(() => {
     return localStorage.getItem('nani_google_api_key') || import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
   });
+
+
 
   const [mapEngine, setMapEngineState] = useState<MapEngine>(() => {
     const savedEngine = localStorage.getItem('nani_map_engine') as MapEngine;
@@ -252,7 +367,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } else if (type === 'SYNC_APPLICANTS') {
           setDriverApplicants(payload);
           localStorage.setItem('nani_driver_applicants', JSON.stringify(payload));
+        } else if (type === 'SYNC_THEME') {
+          setThemeState(payload);
+          localStorage.setItem('nani_theme', payload);
+          if (typeof document !== 'undefined') {
+            if (payload === 'light') {
+              document.documentElement.classList.add('light');
+              document.documentElement.classList.remove('dark');
+              document.documentElement.setAttribute('data-theme', 'light');
+            } else {
+              document.documentElement.classList.add('dark');
+              document.documentElement.classList.remove('light');
+              document.documentElement.setAttribute('data-theme', 'dark');
+            }
+          }
+        } else if (type === 'SYNC_USER_PROFILE') {
+          setUserProfile(payload);
+          localStorage.setItem('nani_user_profile', JSON.stringify(payload));
         }
+
+
       };
 
       return () => {
@@ -307,6 +441,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
 
+    // Setup Rides Realtime Subscription
     const rideChannel = supabase
       .channel('supabase_realtime_rides')
       .on(
@@ -325,10 +460,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       )
       .subscribe();
 
+    // Setup Driver Applicants KYC & Verification Realtime Subscription
+    supabase
+      .from('driver_applicants')
+      .select('*')
+      .order('id', { ascending: true })
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          const fetchedApplicants = data.map(mapDbRowToDriverApplicant);
+          setDriverApplicants(fetchedApplicants);
+          localStorage.setItem('nani_driver_applicants', JSON.stringify(fetchedApplicants));
+
+          // If DRV-101 is present, sync DRV-101 driver docs
+          const drv101 = fetchedApplicants.find((a) => a.id === 'DRV-101');
+          if (drv101) {
+            setDriverDocs({
+              license: drv101.docs.license.status,
+              rc: drv101.docs.rc.status,
+              insurance: drv101.docs.insurance.status,
+              identity: drv101.docs.identity.status,
+              details: drv101.docs,
+            });
+          }
+        }
+      });
+
+    const applicantsChannel = supabase
+      .channel('supabase_realtime_driver_applicants')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'driver_applicants' },
+        (payload) => {
+          if (payload.new) {
+            const updated = mapDbRowToDriverApplicant(payload.new);
+            setDriverApplicants((prev) => {
+              const exists = prev.some((a) => a.id === updated.id);
+              const nextList = exists
+                ? prev.map((a) => (a.id === updated.id ? updated : a))
+                : [...prev, updated];
+              localStorage.setItem('nani_driver_applicants', JSON.stringify(nextList));
+              return nextList;
+            });
+
+            if (updated.id === 'DRV-101') {
+              setDriverDocs({
+                license: updated.docs.license.status,
+                rc: updated.docs.rc.status,
+                insurance: updated.docs.insurance.status,
+                identity: updated.docs.identity.status,
+                details: updated.docs,
+              });
+            }
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase?.removeChannel(rideChannel);
+      supabase?.removeChannel(applicantsChannel);
     };
   }, []);
+
 
   // Simulated GPS Driver Movement & Navigation
   useEffect(() => {
@@ -434,8 +627,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = (inputPhone: string) => {
     setPhone(inputPhone);
     localStorage.setItem('nani_phone', inputPhone);
+    setUserProfile((prev) => {
+      const next = { ...prev, phone: inputPhone };
+      localStorage.setItem('nani_user_profile', JSON.stringify(next));
+      return next;
+    });
     setActiveView('role_select');
   };
+
 
   const selectRole = (selectedRole: UserRole) => {
     setRole(selectedRole);
@@ -513,7 +712,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setDriverApplicants(updatedApplicants);
     localStorage.setItem('nani_driver_applicants', JSON.stringify(updatedApplicants));
     broadcast('SYNC_APPLICANTS', updatedApplicants);
+
+    if (isSupabaseConfigured && supabase) {
+      const client = supabase;
+      updatedApplicants.forEach((app) => {
+        client
+          .from('driver_applicants')
+          .upsert(mapDriverApplicantToDbRow(app))
+          .then(({ error }) => {
+            if (error) console.error('Supabase applicant upsert error:', error);
+          });
+      });
+    }
+
   };
+
 
   const syncDriverDocsState = (newDocs: DriverDocuments) => {
     setDriverDocs(newDocs);
@@ -980,6 +1193,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setMapEngine,
         googleApiKey,
         setGoogleApiKey,
+
+        theme,
+        toggleTheme,
+        setTheme,
+
+        userProfile,
+        updateUserProfile,
+        profileModalOpen,
+        setProfileModalOpen,
 
         driverDocs,
         updateDriverDoc,
