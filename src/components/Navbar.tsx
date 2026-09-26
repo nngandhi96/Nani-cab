@@ -43,13 +43,13 @@ export const Navbar: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-50 bg-[#070a12]/85 backdrop-blur-xl border-b border-slate-800/80 px-4 lg:px-8 py-3 transition-all">
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 sm:gap-4">
         {/* Brand Logo & Live City Indicator */}
         <div
-          className="flex items-center gap-3 cursor-pointer group"
+          className="flex items-center gap-3 cursor-pointer group shrink-0 select-none"
           onClick={() => switchView(role === 'driver' ? 'driver' : 'rider')}
         >
-          <div className="relative">
+          <div className="relative shrink-0">
             <img
               src="/logo.png"
               alt="Nani Cab Logo"
@@ -58,34 +58,37 @@ export const Navbar: React.FC = () => {
             <span className="absolute -bottom-1 -right-1 w-3.5 h-3.5 bg-emerald-500 border-2 border-slate-950 rounded-full animate-pulse" />
           </div>
 
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-xl text-white tracking-tight group-hover:text-amber-400 transition-colors">
+          <div className="shrink-0">
+            <div className="flex items-center gap-2 whitespace-nowrap">
+              <span className="font-black text-xl text-white tracking-tight group-hover:text-amber-400 transition-colors whitespace-nowrap">
                 Nani Cab
               </span>
-              <span className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-widest px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 shrink-0">
                 <Compass className="w-3 h-3 text-amber-400" /> Bengaluru
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-medium">A unit of MAKE MY VASH (MMV)</p>
+            <p className="hidden sm:block text-[11px] text-slate-400 font-medium whitespace-nowrap">
+              A unit of MAKE MY VASH (MMV)
+            </p>
           </div>
         </div>
 
         {/* Live Surge & Time Badge */}
-        <div className="hidden lg:flex items-center gap-4">
-          <div className="bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-300">
+        <div className="hidden xl:flex items-center gap-3 shrink-0">
+          <div className="bg-slate-900/80 border border-slate-800 px-3.5 py-1.5 rounded-xl flex items-center gap-2 text-xs font-semibold text-slate-300 whitespace-nowrap">
             <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400 animate-bounce" />
             <span>Demand Surge: <strong className="text-amber-400">1.2x Peak</strong></span>
           </div>
 
-          <div className="bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-mono text-slate-400">
+          <div className="bg-slate-900/80 border border-slate-800 px-3 py-1.5 rounded-xl flex items-center gap-2 text-xs font-mono text-slate-400 whitespace-nowrap">
             <Clock className="w-3.5 h-3.5 text-slate-500" />
             <span>{timeString || '12:00 PM'}</span>
           </div>
         </div>
 
         {/* Right Side Action Cluster */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+
           {phone && (
             <>
               {/* Real-time Role Switcher Buttons */}
